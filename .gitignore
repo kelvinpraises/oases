@@ -16,3 +16,7 @@ packages/contracts/broadcast/
 # TanStack Start
 app/.vinxi/
 app/.output/
+
+# Agent context & comms
+context/
+
