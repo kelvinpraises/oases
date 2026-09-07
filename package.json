@@ -1,0 +1,25 @@
+{
+  "name": "oases",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Oases: Living State Engine & Algorithmic Conviction Arena",
+  "workspaces": [
+    "packages/*",
+    "cli",
+    "app"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces --if-present build",
+    "test": "npm run --workspaces --if-present test",
+    "lint": "eslint .",
+    "dev": "npm run --workspace=app dev",
+    "cli": "npm run --workspace=@oases/cli start --"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.69.0"
+  }
+}

@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.turbo/
+.cache/
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+
+# Foundry
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/
+
+# TanStack Start
+app/.vinxi/
+app/.output/

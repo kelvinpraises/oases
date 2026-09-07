@@ -1,0 +1,23 @@
+{
+  "name": "@oases/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "oases": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node ./dist/index.js"
+  },
+  "dependencies": {
+    "@oases/options": "*",
+    "@oases/lake": "*",
+    "@oases/harbinger": "*",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^22.13.1"
+  }
+}
