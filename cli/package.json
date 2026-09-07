@@ -3,21 +3,15 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "oases": "./dist/index.js"
+    "oases": "./src/index.ts"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "start": "node ./dist/index.js"
+    "start": "tsx ./src/index.ts"
   },
   "dependencies": {
-    "@oases/options": "*",
-    "@oases/lake": "*",
     "@oases/harbinger": "*",
+    "@oases/lake": "*",
+    "@oases/options": "*",
     "commander": "^13.1.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.3",
-    "@types/node": "^22.13.1"
   }
 }

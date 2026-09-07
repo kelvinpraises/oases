@@ -1,1 +1,0 @@
-{"version":3,"file":"curve.d.ts","sourceRoot":"","sources":["curve.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,eAAO,MAAM,GAAG,QAAa,CAAC;AAE9B;;;GAGG;AACH,wBAAgB,KAAK,CAAC,CAAC,EAAE,MAAM,GAAG,MAAM,CASvC;AAED;;;;;GAKG;AACH,wBAAgB,yBAAyB,CACvC,aAAa,EAAE,MAAM,EACrB,aAAa,EAAE,MAAM,EACrB,YAAY,GAAE,MAAmB,GAChC,MAAM,CAWR"}
