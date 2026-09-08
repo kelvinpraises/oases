@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { WAD, ConvictionSide } from "@oases/options";
-import type { X402Challenge } from "@oases/lake";
-import type { ISovereignAgent } from "@oases/harbinger";
+import { registerConvictCommand } from "./commands/convict";
 
 const program = new Command();
 
@@ -20,5 +19,7 @@ program
     console.log("- Lake x402 gateway: Ready");
     console.log("- Harbinger agents: Ready");
   });
+
+registerConvictCommand(program);
 
 program.parse(process.argv);
