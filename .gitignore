@@ -9,6 +9,8 @@ dist/
 .env.*.local
 
 # Foundry
+cache/
+out/
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
