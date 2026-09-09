@@ -82,6 +82,13 @@ export function segMath(
   return { newPool, dG };
 }
 
+/**
+ * Evaluates shares minted from accumulator G difference.
+ * WAD-scaled: (rate * (g - gPaid)) / WAD
+ */
+export const sharesFromG = (rate: bigint, g: bigint, gPaid: bigint): bigint =>
+  (rate * (g - gPaid)) / WAD;
+
 export interface ProjectSharesInput {
   pool: bigint;
   sideRate: bigint;
@@ -91,7 +98,7 @@ export interface ProjectSharesInput {
 
 /**
  * Projects continuous share accrual for a user streaming at userRate.
- * userShares = userRate * dG
+ * userShares = sharesFromG(userRate, dG, 0n)
  */
 export function projectShares(
   inputOrPool: ProjectSharesInput | bigint,
@@ -119,7 +126,7 @@ export function projectShares(
   if (userRate === 0n || dt === 0n) return 0n;
 
   const { dG } = segMath({ pool, sideRate, dt });
-  return userRate * dG;
+  return sharesFromG(userRate, dG, 0n);
 }
 
 /**

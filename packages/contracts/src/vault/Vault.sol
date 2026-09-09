@@ -6,10 +6,20 @@ import {BondingBoard} from "./BondingBoard.sol";
 import {Protocol} from "../Protocol.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {VaultDriver} from "../streaming/drivers/VaultDriver.sol";
+
+interface IDripsCycle {
+    function CYCLE_SECS() external view returns (uint32);
+}
 
 contract Vault {
     using SafeERC20 for IERC20;
+
+    uint256 internal constant WAD = 1e18;
+    uint256 internal constant MAX_SCHEDULE_SHIFTS = 32;
+
+    error SettlementPending(uint256 readyAt);
 
     enum Status {
         Open,
@@ -54,6 +64,11 @@ contract Vault {
         uint256 lostUsdc;
     }
 
+    struct Boundary {
+        uint32 maxEnd;
+        uint256 account;
+    }
+
     Protocol public immutable protocol;
     IERC20 public immutable usdc;
 
@@ -62,6 +77,18 @@ contract Vault {
     mapping(bytes32 => mapping(Side => Board)) public boards;
     mapping(bytes32 => mapping(Side => mapping(uint256 => Position))) internal _positions;
     mapping(bytes32 => uint256) public yieldPot;
+
+    // Depletion boundary queue per (vaultId, side)
+    mapping(bytes32 => mapping(Side => Boundary[])) internal _boundaries;
+    mapping(bytes32 => mapping(Side => uint256)) internal _boundaryHead;
+
+    // Settlement and Immutable Pot Freezing
+    mapping(bytes32 => uint256) public pot;
+    mapping(bytes32 => bool) public collected;
+    mapping(bytes32 => mapping(Side => mapping(uint256 => bool))) public claimed;
+
+    // Post-resolution overage owed
+    mapping(bytes32 => mapping(Side => mapping(uint256 => uint256))) public overageOwed;
 
     mapping(uint256 => bytes32[]) internal _accountVaultIds;
     mapping(uint256 => mapping(bytes32 => bool)) internal _hasAccountVault;
@@ -72,6 +99,8 @@ contract Vault {
     event Withdrawn(uint256 indexed account, bytes32 indexed vaultId, address indexed to, uint256 payout);
     event Resolved(bytes32 indexed vaultId, Outcome outcome, uint32 resolvedAt);
     event YieldInjected(bytes32 indexed vaultId, address indexed sender, uint256 amount);
+    event Depleted(uint256 indexed account, bytes32 indexed vaultId, Side indexed side, uint32 maxEnd);
+    event UncontestedFallback(bytes32 indexed vaultId, Side indexed winningSide, Side indexed fallbackSide);
 
     constructor(Protocol protocol_, IERC20 usdc_) {
         require(address(protocol_) != address(0), "Vault: zero protocol");
@@ -80,11 +109,15 @@ contract Vault {
     }
 
     modifier onlyFundingDriver() {
+        _onlyFundingDriver();
+        _;
+    }
+
+    function _onlyFundingDriver() internal view {
         require(
             msg.sender == protocol.marketDriver() || msg.sender == protocol.vaultDriver(),
             "Vault: not funding driver"
         );
-        _;
     }
 
     function createVault(bytes32 marketId_, string calldata question, address creator) external returns (bytes32 vaultId) {
@@ -124,7 +157,7 @@ contract Vault {
         Position storage pos = _positions[vaultId][side][account];
 
         if (pos.rate > 0) {
-            pos.sharesAccrued += pos.rate * (board.g - pos.gPaid);
+            pos.sharesAccrued += (pos.rate * (board.g - pos.gPaid)) / WAD;
             board.sideRate = board.sideRate - pos.rate + rate;
             if (block.timestamp > pos.fundStart) {
                 pos.lostUsdc += pos.rate * (block.timestamp - pos.fundStart);
@@ -138,6 +171,8 @@ contract Vault {
         pos.maxEnd = maxEnd;
         pos.depleted = false;
         pos.fundStart = uint32(block.timestamp);
+
+        _scheduleBoundary(vaultId, side, maxEnd, account);
 
         if (!_hasAccountVault[account][vaultId]) {
             _hasAccountVault[account][vaultId] = true;
@@ -157,11 +192,21 @@ contract Vault {
         Position storage pos = _positions[vaultId][side][account];
 
         if (pos.rate > 0) {
-            pos.sharesAccrued += pos.rate * (board.g - pos.gPaid);
+            pos.sharesAccrued += (pos.rate * (board.g - pos.gPaid)) / WAD;
             board.sideRate -= pos.rate;
             if (block.timestamp > pos.fundStart) {
                 pos.lostUsdc += pos.rate * (block.timestamp - pos.fundStart);
             }
+
+            // Record overage if stopped post-resolution
+            if (v.resolvedAt != 0 && block.timestamp > v.resolvedAt) {
+                uint256 overEnd = (pos.maxEnd != 0 && pos.maxEnd < block.timestamp) ? uint256(pos.maxEnd) : block.timestamp;
+                if (overEnd > v.resolvedAt) {
+                    uint256 over = pos.rate * (overEnd - uint256(v.resolvedAt));
+                    overageOwed[vaultId][side][account] += over;
+                }
+            }
+
             pos.rate = 0;
         }
         pos.gPaid = board.g;
@@ -181,13 +226,19 @@ contract Vault {
             Position storage pos = _positions[vaultIds[i]][sides[i]][account];
             if (pos.rate > 0) {
                 pos.maxEnd = maxEnd;
+                _scheduleBoundary(vaultIds[i], sides[i], maxEnd, account);
             }
         }
     }
 
     function advance(bytes32 vaultId, Side side) external {
         require(vaults[vaultId].exists, "Vault: unknown vault");
-        _advance(vaultId, side);
+        _advance(vaultId, side, 64);
+    }
+
+    function advance(bytes32 vaultId, Side side, uint256 maxSteps) external {
+        require(vaults[vaultId].exists, "Vault: unknown vault");
+        _advance(vaultId, side, maxSteps);
     }
 
     function resolve(bytes32 vaultId, Outcome outcome) external {
@@ -218,6 +269,35 @@ contract Vault {
         emit YieldInjected(vaultId, msg.sender, amount);
     }
 
+    function harvestVault(bytes32 vaultId) external {
+        address vd = protocol.vaultDriver();
+        if (vd != address(0)) {
+            VaultDriver(vd).harvest(vaultId, Side.Yes);
+            VaultDriver(vd).harvest(vaultId, Side.No);
+        }
+    }
+
+    function collect(bytes32 vaultId) public returns (uint256) {
+        VaultData storage v = vaults[vaultId];
+        require(v.exists, "Vault: unknown vault");
+        require(v.status == Status.Resolved, "Vault: not resolved");
+
+        if (collected[vaultId]) {
+            return pot[vaultId];
+        }
+
+        address vd = protocol.vaultDriver();
+        if (vd != address(0)) {
+            try VaultDriver(vd).harvest(vaultId, Side.Yes) {} catch {}
+            try VaultDriver(vd).harvest(vaultId, Side.No) {} catch {}
+        }
+
+        uint256 frozenPot = boards[vaultId][Side.Yes].pool + boards[vaultId][Side.No].pool + yieldPot[vaultId];
+        pot[vaultId] = frozenPot;
+        collected[vaultId] = true;
+        return frozenPot;
+    }
+
     function withdraw(uint256 account, bytes32 vaultId, address to) external returns (uint256 payout) {
         require(
             msg.sender == protocol.marketDriver() ||
@@ -230,43 +310,111 @@ contract Vault {
         require(v.exists, "Vault: unknown vault");
         require(v.status == Status.Resolved, "Vault: not resolved");
 
-        Side winningSide = (v.outcome == Outcome.Yes) ? Side.Yes : Side.No;
-        _advance(vaultId, winningSide);
+        // Flaw 2 Fix: Check settlement cycle finalization
+        address dripsAddr = protocol.dripsStreaming();
+        if (dripsAddr != address(0)) {
+            try IDripsCycle(dripsAddr).CYCLE_SECS() returns (uint32 cycleSecs) {
+                if (cycleSecs > 0) {
+                    uint256 readyAt = ((uint256(v.resolvedAt) + cycleSecs) / cycleSecs) * cycleSecs;
+                    if (block.timestamp < readyAt) {
+                        revert SettlementPending(readyAt);
+                    }
+                }
+            } catch {}
+        }
 
-        Board storage board = boards[vaultId][winningSide];
-        Position storage pos = _positions[vaultId][winningSide][account];
+        Side claimSide = (v.outcome == Outcome.Yes) ? Side.Yes : Side.No;
+        _advance(vaultId, claimSide);
+
+        // Uncontested Market Trap Defense:
+        // If claimSide has 0 shares, fall back to refunding the non-empty side's depositors pro-rata
+        if (boards[vaultId][claimSide].sideShares == 0) {
+            Side fallbackSide = (claimSide == Side.Yes) ? Side.No : Side.Yes;
+            _advance(vaultId, fallbackSide);
+            if (boards[vaultId][fallbackSide].sideShares > 0) {
+                claimSide = fallbackSide;
+                emit UncontestedFallback(vaultId, (v.outcome == Outcome.Yes) ? Side.Yes : Side.No, fallbackSide);
+            }
+        }
+
+        Board storage board = boards[vaultId][claimSide];
+        Position storage pos = _positions[vaultId][claimSide][account];
 
         if (pos.rate > 0) {
-            pos.sharesAccrued += pos.rate * (board.g - pos.gPaid);
+            pos.sharesAccrued += (pos.rate * (board.g - pos.gPaid)) / WAD;
+            if (block.timestamp > v.resolvedAt) {
+                uint256 overEnd = (pos.maxEnd != 0 && pos.maxEnd < block.timestamp) ? uint256(pos.maxEnd) : block.timestamp;
+                if (overEnd > v.resolvedAt) {
+                    uint256 over = pos.rate * (overEnd - uint256(v.resolvedAt));
+                    overageOwed[vaultId][claimSide][account] += over;
+                }
+            }
             pos.rate = 0;
             pos.gPaid = board.g;
         }
 
         uint256 userShares = pos.sharesAccrued;
-        require(userShares > 0, "Vault: no winning shares");
-
-        address vd = protocol.vaultDriver();
-        if (vd != address(0)) {
-            try VaultDriver(vd).harvest(vaultId, Side.Yes) {} catch {}
-            try VaultDriver(vd).harvest(vaultId, Side.No) {} catch {}
-        }
-
-        uint256 totalPot = boards[vaultId][Side.Yes].pool + boards[vaultId][Side.No].pool + yieldPot[vaultId];
+        uint256 frozenPot = collect(vaultId);
         uint256 winningShares = board.sideShares;
-        require(winningShares > 0, "Vault: zero winning shares");
 
-        payout = (totalPot * userShares) / winningShares;
+        require(!claimed[vaultId][claimSide][account], "Vault: already claimed");
 
-        pos.sharesAccrued = 0;
-
-        uint256 bal = usdc.balanceOf(address(this));
-        if (payout > bal) {
-            payout = bal;
+        if (userShares > 0 && winningShares > 0) {
+            payout = FixedPointMathLib.fullMulDiv(frozenPot, userShares, winningShares);
         }
+
+        // Add overage owed refund
+        uint256 overage = overageOwed[vaultId][claimSide][account];
+        if (overage > 0) {
+            overageOwed[vaultId][claimSide][account] = 0;
+            payout += overage;
+        }
+
         require(payout > 0, "Vault: zero payout");
+
+        claimed[vaultId][claimSide][account] = true;
+        pos.sharesAccrued = 0;
 
         usdc.safeTransfer(to, payout);
         emit Withdrawn(account, vaultId, to, payout);
+    }
+
+    function refundOverage(uint256 account, bytes32 vaultId, Side side, address to) external returns (uint256 refunded) {
+        require(to != address(0), "Vault: zero address");
+        require(
+            msg.sender == protocol.marketDriver() ||
+            msg.sender == protocol.vaultDriver() ||
+            msg.sender == protocol.owner(),
+            "Vault: unauthorized"
+        );
+        VaultData storage v = vaults[vaultId];
+        require(v.exists, "Vault: unknown vault");
+        require(v.status == Status.Resolved, "Vault: not resolved");
+
+        _advance(vaultId, side);
+
+        Position storage pos = _positions[vaultId][side][account];
+        if (pos.rate > 0) {
+            if (block.timestamp > v.resolvedAt) {
+                uint256 overEnd = (pos.maxEnd != 0 && pos.maxEnd < block.timestamp) ? uint256(pos.maxEnd) : block.timestamp;
+                if (overEnd > v.resolvedAt) {
+                    uint256 over = pos.rate * (overEnd - uint256(v.resolvedAt));
+                    overageOwed[vaultId][side][account] += over;
+                }
+            }
+            pos.rate = 0;
+        }
+
+        address vd = protocol.vaultDriver();
+        if (vd != address(0)) {
+            try VaultDriver(vd).harvest(vaultId, side) {} catch {}
+        }
+
+        refunded = overageOwed[vaultId][side][account];
+        require(refunded > 0, "Vault: no overage");
+        overageOwed[vaultId][side][account] = 0;
+
+        usdc.safeTransfer(to, refunded);
     }
 
     function getPosition(bytes32 vaultId, Side side, uint256 account)
@@ -301,31 +449,112 @@ contract Vault {
         return _accountVaultIds[account];
     }
 
+    function getBoundaryQueue(bytes32 vaultId, Side side) external view returns (uint256 total, uint256 head) {
+        return (_boundaries[vaultId][side].length, _boundaryHead[vaultId][side]);
+    }
+
+    function _scheduleBoundary(bytes32 vaultId, Side side, uint32 maxEnd, uint256 account) internal {
+        if (maxEnd == 0) return;
+        Boundary[] storage queue = _boundaries[vaultId][side];
+        uint256 head = _boundaryHead[vaultId][side];
+
+        if (queue.length == head || queue[queue.length - 1].maxEnd <= maxEnd) {
+            queue.push(Boundary({maxEnd: maxEnd, account: account}));
+            return;
+        }
+
+        // Bounded insertion sort: cap shifts at MAX_SCHEDULE_SHIFTS (32) to prevent gas griefing
+        queue.push(Boundary({maxEnd: maxEnd, account: account}));
+        uint256 i = queue.length - 1;
+        uint256 shifts = 0;
+        while (i > head && queue[i - 1].maxEnd > maxEnd && shifts < MAX_SCHEDULE_SHIFTS) {
+            queue[i] = queue[i - 1];
+            i--;
+            shifts++;
+        }
+        queue[i] = Boundary({maxEnd: maxEnd, account: account});
+    }
+
     function _advance(bytes32 vaultId, Side side) internal {
+        _advance(vaultId, side, 64);
+    }
+
+    function _advance(bytes32 vaultId, Side side, uint256 maxSteps) internal {
         Board storage board = boards[vaultId][side];
         VaultData storage v = vaults[vaultId];
 
-        uint32 currentTime = uint32(block.timestamp);
-        if (v.status == Status.Resolved && v.resolvedAt < currentTime) {
-            currentTime = v.resolvedAt;
+        uint32 targetTs = uint32(block.timestamp);
+        if (v.status == Status.Resolved && v.resolvedAt < targetTs) {
+            targetTs = v.resolvedAt;
         }
 
         if (board.lastAdvance == 0) {
-            board.lastAdvance = currentTime;
+            board.lastAdvance = targetTs;
             return;
         }
-        if (currentTime <= board.lastAdvance) {
+        if (targetTs <= board.lastAdvance) {
             return;
         }
 
-        uint256 dt = currentTime - board.lastAdvance;
-        board.lastAdvance = currentTime;
+        uint32 t = board.lastAdvance;
+        Boundary[] storage queue = _boundaries[vaultId][side];
+        uint256 head = _boundaryHead[vaultId][side];
+        uint256 steps = 0;
 
-        if (board.sideRate > 0 && dt > 0) {
-            (uint256 newPool, uint256 dG) = BondingBoard.segMath(board.pool, board.sideRate, dt);
-            board.pool = newPool;
-            board.g += dG;
-            board.sideShares += board.sideRate * dG;
+        while (head < queue.length && steps < maxSteps) {
+            Boundary storage b = queue[head];
+            if (b.maxEnd > targetTs) {
+                break;
+            }
+
+            uint32 bMaxEnd = b.maxEnd;
+            if (bMaxEnd > t) {
+                uint256 dt = bMaxEnd - t;
+                if (board.sideRate > 0) {
+                    (uint256 newPool, uint256 dG) = BondingBoard.segMath(board.pool, board.sideRate, dt);
+                    board.pool = newPool;
+                    board.g += dG;
+                    board.sideShares += (board.sideRate * dG) / WAD;
+                }
+                t = bMaxEnd;
+                board.lastAdvance = t;
+            }
+
+            // Process depletion for b.account
+            Position storage pos = _positions[vaultId][side][b.account];
+            if (pos.rate > 0 && pos.maxEnd <= bMaxEnd) {
+                uint256 accrued = (pos.rate * (board.g - pos.gPaid)) / WAD;
+                pos.sharesAccrued += accrued;
+                pos.gPaid = board.g;
+                if (t > pos.fundStart) {
+                    pos.lostUsdc += pos.rate * (t - pos.fundStart);
+                    pos.fundStart = t;
+                }
+                board.sideRate -= pos.rate;
+                pos.rate = 0;
+                pos.depleted = true;
+                emit Depleted(b.account, vaultId, side, bMaxEnd);
+            }
+
+            head++;
+            steps++;
+        }
+        _boundaryHead[vaultId][side] = head;
+
+        // Trailing delta step-cap fix:
+        // Only step to targetTs if all mature boundaries up to targetTs were drained.
+        // If the loop broke because steps == maxSteps, leave board.lastAdvance = t
+        // so subsequent advance calls continue draining from t without skipping boundaries.
+        bool queueFullyDrained = (head == queue.length || queue[head].maxEnd > targetTs);
+        if (targetTs > t && queueFullyDrained) {
+            uint256 dt = targetTs - t;
+            if (board.sideRate > 0) {
+                (uint256 newPool, uint256 dG) = BondingBoard.segMath(board.pool, board.sideRate, dt);
+                board.pool = newPool;
+                board.g += dG;
+                board.sideShares += (board.sideRate * dG) / WAD;
+            }
+            board.lastAdvance = targetTs;
         }
     }
 }

@@ -4,6 +4,7 @@ import {
   priceOf,
   segMath,
   projectShares,
+  sharesFromG,
   BASE_PRICE,
   CURVE_K,
   SHARE_SCALE,
@@ -49,7 +50,7 @@ describe("curve TS parity", () => {
     assert.ok(res.dG > 0n);
   });
 
-  it("projectShares calculates userRate * dG", () => {
+  it("projectShares calculates sharesFromG(userRate, dG, 0n) with WAD division", () => {
     const pool = 10_000_000_000n;
     const sideRate = 20_000_000n;
     const userRate = 5_000_000n;
@@ -58,8 +59,11 @@ describe("curve TS parity", () => {
     const { dG } = segMath({ pool, sideRate, dt });
     const userShares = projectShares({ pool, sideRate, userRate, dt });
 
-    assert.equal(userShares, userRate * dG);
+    assert.equal(userShares, sharesFromG(userRate, dG, 0n));
+    assert.equal(userShares, (userRate * dG) / WAD);
     assert.ok(userShares > 0n);
+    // Sanity check: 5 USDC/sec for 60s is 300 USDC deposited at ~0.20 USDC price -> ~1,500 shares (1.5e9)
+    assert.ok(userShares > 1_000_000_000n && userShares < 2_000_000_000n);
   });
 
   it("telescoping linearity in TS matches segment addition within rounding tolerance", () => {
@@ -76,7 +80,6 @@ describe("curve TS parity", () => {
 
     const sumDG = seg1.dG + seg2.dG;
     const diff = sumDG > combined.dG ? sumDG - combined.dG : combined.dG - sumDG;
-    // Relative difference should be negligible (< 0.0001%)
     const relativeError = (Number(diff) / Number(combined.dG)) * 100;
     assert.ok(relativeError < 0.0001, `Relative error too high: ${relativeError}%`);
   });
