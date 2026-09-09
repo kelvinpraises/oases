@@ -90,6 +90,23 @@ export const sharesFromG = (rate: bigint, g: bigint, gPaid: bigint): bigint =>
   (rate * (g - gPaid)) / WAD;
 
 export interface ProjectSharesInput {
+  board: {
+    pool: bigint;
+    sideRate: bigint;
+    g: bigint;
+    lastAdvanceMs: number;
+  };
+  position: {
+    rate: bigint;
+    gPaid: bigint;
+    maxEndMs?: number;
+    depleted: boolean;
+  };
+  atMs: number;
+  resolvedAtMs?: number;
+}
+
+export interface LegacyProjectSharesInput {
   pool: bigint;
   sideRate: bigint;
   userRate: bigint;
@@ -97,25 +114,48 @@ export interface ProjectSharesInput {
 }
 
 /**
- * Projects continuous share accrual for a user streaming at userRate.
- * userShares = sharesFromG(userRate, dG, 0n)
+ * Projects continuous share accrual for a funder from entry state (gPaid and board.g).
  */
 export function projectShares(
-  inputOrPool: ProjectSharesInput | bigint,
+  inputOrPool: ProjectSharesInput | LegacyProjectSharesInput | bigint,
   sideRateArg?: bigint,
   userRateArg?: bigint,
   dtArg?: bigint
 ): bigint {
+  if (typeof inputOrPool === "object" && "board" in inputOrPool) {
+    const { board, position, atMs, resolvedAtMs } = inputOrPool;
+    if (position.depleted || position.rate === 0n || board.sideRate === 0n) {
+      return sharesFromG(position.rate, board.g, position.gPaid);
+    }
+
+    const freezeMs = Math.min(
+      atMs,
+      position.maxEndMs ?? atMs,
+      resolvedAtMs ?? atMs
+    );
+
+    if (freezeMs <= board.lastAdvanceMs) {
+      return sharesFromG(position.rate, board.g, position.gPaid);
+    }
+
+    const dtSeconds = BigInt(Math.floor((freezeMs - board.lastAdvanceMs) / 1000));
+    const { dG } = segMath({ pool: board.pool, sideRate: board.sideRate, dt: dtSeconds });
+    const gNow = board.g + dG;
+
+    return sharesFromG(position.rate, gNow, position.gPaid);
+  }
+
+  // Legacy fallback for simple dt-based projection
   let pool: bigint;
   let sideRate: bigint;
   let userRate: bigint;
   let dt: bigint;
 
   if (typeof inputOrPool === "object") {
-    pool = inputOrPool.pool;
-    sideRate = inputOrPool.sideRate;
-    userRate = inputOrPool.userRate;
-    dt = inputOrPool.dt;
+    pool = (inputOrPool as LegacyProjectSharesInput).pool;
+    sideRate = (inputOrPool as LegacyProjectSharesInput).sideRate;
+    userRate = (inputOrPool as LegacyProjectSharesInput).userRate;
+    dt = (inputOrPool as LegacyProjectSharesInput).dt;
   } else {
     pool = inputOrPool;
     sideRate = sideRateArg ?? 0n;

@@ -155,10 +155,10 @@ contract VaultStreamingTest is Test {
         assertGt(payout, 0, "Payout must be positive");
         assertEq(usdc.balanceOf(creator), preWithdraw + payout, "Payout transferred to creator");
 
-        // Subsequent withdrawal should fail (already claimed)
+        // Subsequent withdrawal returns 0 cleanly (revert-free when already claimed)
         vm.prank(creator);
-        vm.expectRevert("Vault: already claimed");
-        vaultDriver.withdraw(vaultId);
+        uint256 secondPayout = vaultDriver.withdraw(vaultId);
+        assertEq(secondPayout, 0, "Subsequent withdrawal must return 0");
     }
 
     /// @notice Requirement 1: Depletion boundary stops phantom accrual
@@ -328,4 +328,95 @@ contract VaultStreamingTest is Test {
         uint256 refunded = vault.withdraw(noFunder, vaultId, creator);
         assertEq(refunded, totalPot, "No funder receives 100% of the pot, zero trapped funds");
     }
+
+    /// @notice Requirement 6: Revert-free zero payout and losing side overage drainage
+    function testZeroPayoutAndDualOverageWithdraw() public {
+        bytes32 vaultId = vault.createVault(marketId, "ZeroPayout Test", creator);
+        marketRegistry.addVault(marketId, vaultId);
+
+        uint256 nonParticipant = 404;
+        uint256 funderYes = 111;
+        uint256 funderNo = 222;
+
+        // Funder YES streams 5 USDC/sec, Funder NO streams 5 USDC/sec
+        vault.onFund(funderYes, vaultId, Side.Yes, 5e6, uint32(block.timestamp + 100));
+        vault.onFund(funderNo, vaultId, Side.No, 5e6, uint32(block.timestamp + 100));
+
+        // Advance to a time that aligns with Drips cycle boundary
+        // CYCLE_SECS is 10
+        uint32 currentTs = uint32(block.timestamp);
+        uint32 nextCycle = ((currentTs + 10 - 1) / 10) * 10;
+        vm.warp(nextCycle);
+
+        // Resolve at exact cycle boundary
+        vault.resolve(vaultId, Vault.Outcome.Yes);
+
+        // Advance 5 seconds past resolution (both funders delivered overage)
+        vm.warp(block.timestamp + 5);
+
+        // Advance boards past cycle boundary so settlement is ready
+        vm.warp(block.timestamp + 10);
+
+        uint256 totalPot = vault.collect(vaultId);
+        // Mint tokens to vault to cover pot and both overages (pot: 90e6, overages: 150e6)
+        usdc.mint(address(vault), totalPot + 200e6);
+
+        // 1. Non-participant withdraws: returns 0 cleanly without reverting
+        uint256 payoutNonPart = vault.withdraw(nonParticipant, vaultId, creator);
+        assertEq(payoutNonPart, 0, "Non-participant receives 0 cleanly");
+
+        // 2. Funder NO (losing side) withdraws: has zero winning shares, but receives losing side overage!
+        uint256 payoutNo = vault.withdraw(funderNo, vaultId, funderB);
+        assertGt(payoutNo, 0, "Losing funder receives delivered overage cleanly");
+
+        // 3. Funder YES (winning side) withdraws: receives winning pro-rata payout + winning overage
+        uint256 payoutYes = vault.withdraw(funderYes, vaultId, creator);
+        assertGt(payoutYes, 0, "Winning funder receives payout + overage");
+
+        // 4. Idempotency checks: Repeated withdrawals return 0 cleanly without reverting
+        uint256 repeatPayoutNo = vault.withdraw(funderNo, vaultId, funderB);
+        assertEq(repeatPayoutNo, 0, "Repeated withdrawal for losing funder must return 0");
+
+        uint256 repeatPayoutYes = vault.withdraw(funderYes, vaultId, creator);
+        assertEq(repeatPayoutYes, 0, "Repeated withdrawal for winning funder must return 0");
+    }
+
+    /// @notice Requirement 7: pendingShares view parity right before and after _advance
+    function testPendingSharesAndReadHelpers() public {
+        bytes32 vaultId = vault.createVault(marketId, "PendingShares Test", creator);
+        marketRegistry.addVault(marketId, vaultId);
+
+        uint256 funder = 777;
+        uint256 rate = 2e6; // 2 USDC/sec
+        uint32 maxEnd = uint32(block.timestamp + 300);
+
+        vault.onFund(funder, vaultId, Side.Yes, rate, maxEnd);
+
+        // Advance 50 seconds into the stream
+        vm.warp(block.timestamp + 50);
+
+        // Gasless preview of pending shares before state-advancing
+        uint256 pendingBefore = vault.pendingShares(vaultId, Side.Yes, funder);
+        assertGt(pendingBefore, 0, "Pending shares must be positive");
+
+        // Advance the board on-chain
+        vault.advance(vaultId, Side.Yes);
+
+        // Preview after advance must match pendingBefore exactly
+        uint256 pendingAfter = vault.pendingShares(vaultId, Side.Yes, funder);
+        assertEq(pendingBefore, pendingAfter, "pendingShares must be identical right before and after _advance");
+
+        // Verify getSharePrice increases monotonically
+        uint256 priceYes = vault.getSharePrice(vaultId, Side.Yes);
+        assertGt(priceYes, 100_000, "Share price must increase above base price");
+
+        // Verify getVaultPools
+        (uint256 yesPool, uint256 noPool, uint256 yesShares, uint256 noShares) = vault.getVaultPools(vaultId);
+        assertEq(yesPool, 50 * rate, "Yes pool matches deposited amount");
+        assertEq(noPool, 0, "No pool remains 0");
+        assertEq(yesShares, pendingAfter, "getVaultPools returns WAD-scaled integer shares");
+        assertEq(noShares, 0, "No shares are 0");
+    }
 }
+
+

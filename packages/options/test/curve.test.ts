@@ -83,4 +83,34 @@ describe("curve TS parity", () => {
     const relativeError = (Number(diff) / Number(combined.dG)) * 100;
     assert.ok(relativeError < 0.0001, `Relative error too high: ${relativeError}%`);
   });
+
+  it("projectShares accounts for gPaid, lastAdvanceMs, maxEndMs, and resolvedAtMs", () => {
+    const input = {
+      board: {
+        pool: 5_000_000_000n,
+        sideRate: 10_000_000n,
+        g: 100_000_000_000_000_000n, // 0.1 WAD
+        lastAdvanceMs: 1_000_000,
+      },
+      position: {
+        rate: 2_000_000n,
+        gPaid: 80_000_000_000_000_000n, // 0.08 WAD (funder entered earlier)
+        maxEndMs: 1_060_000, // stops after 60s
+        depleted: false,
+      },
+      atMs: 1_050_000, // 50 seconds into projection
+      resolvedAtMs: 1_100_000,
+    };
+
+    const projected = projectShares(input);
+    assert.ok(projected > 0n);
+
+    // If freezeMs <= lastAdvanceMs, returns sharesFromG(rate, board.g, gPaid)
+    const instantInput = {
+      ...input,
+      atMs: 1_000_000,
+    };
+    const instantProjected = projectShares(instantInput);
+    assert.equal(instantProjected, sharesFromG(input.position.rate, input.board.g, input.position.gPaid));
+  });
 });

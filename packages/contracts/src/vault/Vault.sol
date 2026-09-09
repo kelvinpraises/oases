@@ -157,7 +157,7 @@ contract Vault {
         Position storage pos = _positions[vaultId][side][account];
 
         if (pos.rate > 0) {
-            pos.sharesAccrued += (pos.rate * (board.g - pos.gPaid)) / WAD;
+            pos.sharesAccrued += pos.rate * (board.g - pos.gPaid);
             board.sideRate = board.sideRate - pos.rate + rate;
             if (block.timestamp > pos.fundStart) {
                 pos.lostUsdc += pos.rate * (block.timestamp - pos.fundStart);
@@ -192,7 +192,7 @@ contract Vault {
         Position storage pos = _positions[vaultId][side][account];
 
         if (pos.rate > 0) {
-            pos.sharesAccrued += (pos.rate * (board.g - pos.gPaid)) / WAD;
+            pos.sharesAccrued += pos.rate * (board.g - pos.gPaid);
             board.sideRate -= pos.rate;
             if (block.timestamp > pos.fundStart) {
                 pos.lostUsdc += pos.rate * (block.timestamp - pos.fundStart);
@@ -292,6 +292,9 @@ contract Vault {
             try VaultDriver(vd).harvest(vaultId, Side.No) {} catch {}
         }
 
+        _advance(vaultId, Side.Yes, type(uint256).max);
+        _advance(vaultId, Side.No, type(uint256).max);
+
         uint256 frozenPot = boards[vaultId][Side.Yes].pool + boards[vaultId][Side.No].pool + yieldPot[vaultId];
         pot[vaultId] = frozenPot;
         collected[vaultId] = true;
@@ -307,15 +310,14 @@ contract Vault {
         );
         require(to != address(0), "Vault: zero address");
         VaultData storage v = vaults[vaultId];
-        require(v.exists, "Vault: unknown vault");
-        require(v.status == Status.Resolved, "Vault: not resolved");
+        if (!v.exists || v.status != Status.Resolved) return 0;
 
         // Flaw 2 Fix: Check settlement cycle finalization
         address dripsAddr = protocol.dripsStreaming();
         if (dripsAddr != address(0)) {
             try IDripsCycle(dripsAddr).CYCLE_SECS() returns (uint32 cycleSecs) {
                 if (cycleSecs > 0) {
-                    uint256 readyAt = ((uint256(v.resolvedAt) + cycleSecs) / cycleSecs) * cycleSecs;
+                    uint256 readyAt = ((uint256(v.resolvedAt) + cycleSecs - 1) / cycleSecs) * cycleSecs;
                     if (block.timestamp < readyAt) {
                         revert SettlementPending(readyAt);
                     }
@@ -323,14 +325,15 @@ contract Vault {
             } catch {}
         }
 
+        _advance(vaultId, Side.Yes, type(uint256).max);
+        _advance(vaultId, Side.No, type(uint256).max);
+
         Side claimSide = (v.outcome == Outcome.Yes) ? Side.Yes : Side.No;
-        _advance(vaultId, claimSide);
 
         // Uncontested Market Trap Defense:
         // If claimSide has 0 shares, fall back to refunding the non-empty side's depositors pro-rata
         if (boards[vaultId][claimSide].sideShares == 0) {
             Side fallbackSide = (claimSide == Side.Yes) ? Side.No : Side.Yes;
-            _advance(vaultId, fallbackSide);
             if (boards[vaultId][fallbackSide].sideShares > 0) {
                 claimSide = fallbackSide;
                 emit UncontestedFallback(vaultId, (v.outcome == Outcome.Yes) ? Side.Yes : Side.No, fallbackSide);
@@ -341,7 +344,7 @@ contract Vault {
         Position storage pos = _positions[vaultId][claimSide][account];
 
         if (pos.rate > 0) {
-            pos.sharesAccrued += (pos.rate * (board.g - pos.gPaid)) / WAD;
+            pos.sharesAccrued += pos.rate * (board.g - pos.gPaid);
             if (block.timestamp > v.resolvedAt) {
                 uint256 overEnd = (pos.maxEnd != 0 && pos.maxEnd < block.timestamp) ? uint256(pos.maxEnd) : block.timestamp;
                 if (overEnd > v.resolvedAt) {
@@ -353,30 +356,51 @@ contract Vault {
             pos.gPaid = board.g;
         }
 
+        // Account for any active overage on the opposite side as well
+        Side otherSide = (claimSide == Side.Yes) ? Side.No : Side.Yes;
+        Position storage posOther = _positions[vaultId][otherSide][account];
+        if (posOther.rate > 0) {
+            if (block.timestamp > v.resolvedAt) {
+                uint256 overEnd = (posOther.maxEnd != 0 && posOther.maxEnd < block.timestamp) ? uint256(posOther.maxEnd) : block.timestamp;
+                if (overEnd > v.resolvedAt) {
+                    uint256 over = posOther.rate * (overEnd - uint256(v.resolvedAt));
+                    overageOwed[vaultId][otherSide][account] += over;
+                }
+            }
+            posOther.rate = 0;
+        }
+
         uint256 userShares = pos.sharesAccrued;
         uint256 frozenPot = collect(vaultId);
         uint256 winningShares = board.sideShares;
 
-        require(!claimed[vaultId][claimSide][account], "Vault: already claimed");
-
-        if (userShares > 0 && winningShares > 0) {
-            payout = FixedPointMathLib.fullMulDiv(frozenPot, userShares, winningShares);
+        if (!claimed[vaultId][claimSide][account]) {
+            if (userShares > 0 && winningShares > 0) {
+                payout = FixedPointMathLib.fullMulDiv(frozenPot, userShares, winningShares);
+                claimed[vaultId][claimSide][account] = true;
+                pos.sharesAccrued = 0;
+            }
         }
 
-        // Add overage owed refund
-        uint256 overage = overageOwed[vaultId][claimSide][account];
-        if (overage > 0) {
-            overageOwed[vaultId][claimSide][account] = 0;
-            payout += overage;
+        // Drain overage on both sides
+        uint256 overYes = overageOwed[vaultId][Side.Yes][account];
+        if (overYes > 0) {
+            overageOwed[vaultId][Side.Yes][account] = 0;
+            payout += overYes;
+        }
+        uint256 overNo = overageOwed[vaultId][Side.No][account];
+        if (overNo > 0) {
+            overageOwed[vaultId][Side.No][account] = 0;
+            payout += overNo;
         }
 
-        require(payout > 0, "Vault: zero payout");
-
-        claimed[vaultId][claimSide][account] = true;
-        pos.sharesAccrued = 0;
+        if (payout == 0) {
+            return 0;
+        }
 
         usdc.safeTransfer(to, payout);
         emit Withdrawn(account, vaultId, to, payout);
+        return payout;
     }
 
     function refundOverage(uint256 account, bytes32 vaultId, Side side, address to) external returns (uint256 refunded) {
@@ -453,6 +477,46 @@ contract Vault {
         return (_boundaries[vaultId][side].length, _boundaryHead[vaultId][side]);
     }
 
+    function _previewG(bytes32 vaultId, Side side, uint256 capTs) internal view returns (uint256) {
+        Board storage b = boards[vaultId][side];
+        if (b.lastAdvance == 0 || capTs <= b.lastAdvance || b.sideRate == 0) {
+            return b.g;
+        }
+        (, uint256 dG) = BondingBoard.segMath(b.pool, b.sideRate, capTs - b.lastAdvance);
+        return b.g + dG;
+    }
+
+    /// @notice Gasless view-parity preview of shares earned if settled right now
+    function pendingShares(bytes32 vaultId, Side side, uint256 account) external view returns (uint256) {
+        Position storage p = _positions[vaultId][side][account];
+        uint256 capTs = block.timestamp;
+        uint32 resolvedAt = vaults[vaultId].resolvedAt;
+        if (resolvedAt != 0 && uint256(resolvedAt) < capTs) {
+            capTs = resolvedAt;
+        }
+        if (!p.depleted && p.maxEnd != 0 && uint256(p.maxEnd) < capTs) {
+            capTs = p.maxEnd;
+        }
+        uint256 gNow = _previewG(vaultId, side, capTs);
+        uint256 accrued = p.sharesAccrued + (p.rate * (gNow - p.gPaid));
+        return accrued / WAD;
+    }
+
+    function getSharePrice(bytes32 vaultId, Side side) external view returns (uint256) {
+        return BondingBoard.price(boards[vaultId][side].pool);
+    }
+
+    function getVaultPools(bytes32 vaultId)
+        external
+        view
+        returns (uint256 yesPool, uint256 noPool, uint256 yesShares, uint256 noShares)
+    {
+        require(vaults[vaultId].exists, "Vault: unknown vault");
+        Board storage y = boards[vaultId][Side.Yes];
+        Board storage n = boards[vaultId][Side.No];
+        return (y.pool, n.pool, y.sideShares / WAD, n.sideShares / WAD);
+    }
+
     function _scheduleBoundary(bytes32 vaultId, Side side, uint32 maxEnd, uint256 account) internal {
         if (maxEnd == 0) return;
         Boundary[] storage queue = _boundaries[vaultId][side];
@@ -514,7 +578,7 @@ contract Vault {
                     (uint256 newPool, uint256 dG) = BondingBoard.segMath(board.pool, board.sideRate, dt);
                     board.pool = newPool;
                     board.g += dG;
-                    board.sideShares += (board.sideRate * dG) / WAD;
+                    board.sideShares += board.sideRate * dG;
                 }
                 t = bMaxEnd;
                 board.lastAdvance = t;
@@ -523,7 +587,7 @@ contract Vault {
             // Process depletion for b.account
             Position storage pos = _positions[vaultId][side][b.account];
             if (pos.rate > 0 && pos.maxEnd <= bMaxEnd) {
-                uint256 accrued = (pos.rate * (board.g - pos.gPaid)) / WAD;
+                uint256 accrued = pos.rate * (board.g - pos.gPaid);
                 pos.sharesAccrued += accrued;
                 pos.gPaid = board.g;
                 if (t > pos.fundStart) {
@@ -552,7 +616,7 @@ contract Vault {
                 (uint256 newPool, uint256 dG) = BondingBoard.segMath(board.pool, board.sideRate, dt);
                 board.pool = newPool;
                 board.g += dG;
-                board.sideShares += (board.sideRate * dG) / WAD;
+                board.sideShares += board.sideRate * dG;
             }
             board.lastAdvance = targetTs;
         }
