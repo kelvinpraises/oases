@@ -94,15 +94,27 @@ contract VaultStreamingTest is Test {
 
     function testCreateVaultAndSeed() public {
         vm.prank(creator);
-        bytes32 vaultId = vaultDriver.createVault(marketId, "Will ETH break 10k?", Side.Yes, 1e6, 100e6);
+        bytes32 vaultId = vaultDriver.createVault(
+            marketId, "Will ETH break 10k?", "eyJzb2x2ZXIiOiJ0ZXN0In0=", Side.Yes, 1e6, 100e6
+        );
 
-        (bytes32 id, bytes32 mId, string memory q, address c, Vault.Status status, Vault.Outcome outcome,, bool exists) =
-            vault.vaults(vaultId);
+        (
+            bytes32 id,
+            bytes32 mId,
+            string memory q,
+            string memory cfg,
+            address c,
+            Vault.Status status,
+            Vault.Outcome outcome,
+            ,
+            bool exists
+        ) = vault.vaults(vaultId);
 
         assertTrue(exists, "Vault should exist");
         assertEq(id, vaultId, "Vault id matches");
         assertEq(mId, marketId, "Market id matches");
         assertEq(q, "Will ETH break 10k?", "Question matches");
+        assertEq(cfg, "eyJzb2x2ZXIiOiJ0ZXN0In0=", "Solver config matches");
         assertEq(c, creator, "Creator matches");
         assertEq(uint8(status), uint8(Vault.Status.Open), "Status is open");
         assertEq(uint8(outcome), uint8(Vault.Outcome.Pending), "Outcome is pending");
@@ -115,7 +127,9 @@ contract VaultStreamingTest is Test {
 
     function testStreamingAdvancementAndResolution() public {
         vm.prank(creator);
-        bytes32 vaultId = vaultDriver.createVault(marketId, "Will ETH break 10k?", Side.Yes, 1e6, 100e6);
+        bytes32 vaultId = vaultDriver.createVault(
+            marketId, "Will ETH break 10k?", "eyJzb2x2ZXIiOiJ0ZXN0In0=", Side.Yes, 1e6, 100e6
+        );
 
         // Advance 50 seconds (5 complete 10-second cycles)
         vm.warp(block.timestamp + 50);
@@ -141,7 +155,7 @@ contract VaultStreamingTest is Test {
 
         // Resolve vault as YES
         vault.resolve(vaultId, Vault.Outcome.Yes);
-        (,,,, Vault.Status status, Vault.Outcome outcome,,) = vault.vaults(vaultId);
+        (,,,,, Vault.Status status, Vault.Outcome outcome,,) = vault.vaults(vaultId);
         assertEq(uint8(status), uint8(Vault.Status.Resolved), "Status is resolved");
         assertEq(uint8(outcome), uint8(Vault.Outcome.Yes), "Outcome is Yes");
 
@@ -164,7 +178,9 @@ contract VaultStreamingTest is Test {
     /// @notice Requirement 1: Depletion boundary stops phantom accrual
     function testDepletionStopsAccrual() public {
         vm.prank(creator);
-        bytes32 vaultId = vaultDriver.createVault(marketId, "Depletion Test", Side.Yes, 1e6, 50e6);
+        bytes32 vaultId = vaultDriver.createVault(
+            marketId, "Depletion Test", "eyJzb2x2ZXIiOiJ0ZXN0In0=", Side.Yes, 1e6, 50e6
+        );
 
         // Advance time 200 seconds without intermediate pokes
         vm.warp(block.timestamp + 200);
@@ -196,7 +212,9 @@ contract VaultStreamingTest is Test {
     /// @notice Requirement 2: Mid-cycle resolution locks claims until cycle finalizes
     function testMidCycleResolutionPending() public {
         vm.prank(creator);
-        bytes32 vaultId = vaultDriver.createVault(marketId, "MidCycle Test", Side.Yes, 1e6, 100e6);
+        bytes32 vaultId = vaultDriver.createVault(
+            marketId, "MidCycle Test", "eyJzb2x2ZXIiOiJ0ZXN0In0=", Side.Yes, 1e6, 100e6
+        );
 
         // Advance 25 seconds (mid-cycle: cycle length is 10s, so cycle 2 ends at 30s)
         vm.warp(block.timestamp + 25);
@@ -227,7 +245,7 @@ contract VaultStreamingTest is Test {
 
     /// @notice Requirement 3: Multi-winner pro-rata payout with frozen pot and zero dust loss
     function testMultiWinnerProRataPayout() public {
-        bytes32 vaultId = vault.createVault(marketId, "MultiWinner Test", creator);
+        bytes32 vaultId = vault.createVault(marketId, "MultiWinner Test", "eyJzb2x2ZXIiOiJ0ZXN0In0=", creator);
         marketRegistry.addVault(marketId, vaultId);
 
         uint256 acctA = 1001;
@@ -266,7 +284,7 @@ contract VaultStreamingTest is Test {
 
     /// @notice Requirement 4: Trailing delta step-cap continuation
     function testStepCapDepletionContinuation() public {
-        bytes32 vaultId = vault.createVault(marketId, "StepCap Test", creator);
+        bytes32 vaultId = vault.createVault(marketId, "StepCap Test", "eyJzb2x2ZXIiOiJ0ZXN0In0=", creator);
         marketRegistry.addVault(marketId, vaultId);
 
         uint32 matureAt = uint32(block.timestamp + 50);
@@ -302,7 +320,7 @@ contract VaultStreamingTest is Test {
 
     /// @notice Requirement 5: Uncontested market resolution prevents locked capital
     function testUncontestedMarketResolution() public {
-        bytes32 vaultId = vault.createVault(marketId, "Uncontested Test", creator);
+        bytes32 vaultId = vault.createVault(marketId, "Uncontested Test", "eyJzb2x2ZXIiOiJ0ZXN0In0=", creator);
         marketRegistry.addVault(marketId, vaultId);
 
         uint256 noFunder = 999;
@@ -331,7 +349,7 @@ contract VaultStreamingTest is Test {
 
     /// @notice Requirement 6: Revert-free zero payout and losing side overage drainage
     function testZeroPayoutAndDualOverageWithdraw() public {
-        bytes32 vaultId = vault.createVault(marketId, "ZeroPayout Test", creator);
+        bytes32 vaultId = vault.createVault(marketId, "ZeroPayout Test", "eyJzb2x2ZXIiOiJ0ZXN0In0=", creator);
         marketRegistry.addVault(marketId, vaultId);
 
         uint256 nonParticipant = 404;
@@ -383,7 +401,7 @@ contract VaultStreamingTest is Test {
 
     /// @notice Requirement 7: pendingShares view parity right before and after _advance
     function testPendingSharesAndReadHelpers() public {
-        bytes32 vaultId = vault.createVault(marketId, "PendingShares Test", creator);
+        bytes32 vaultId = vault.createVault(marketId, "PendingShares Test", "eyJzb2x2ZXIiOiJ0ZXN0In0=", creator);
         marketRegistry.addVault(marketId, vaultId);
 
         uint256 funder = 777;
@@ -416,6 +434,95 @@ contract VaultStreamingTest is Test {
         assertEq(noPool, 0, "No pool remains 0");
         assertEq(yesShares, pendingAfter, "getVaultPools returns WAD-scaled integer shares");
         assertEq(noShares, 0, "No shares are 0");
+    }
+
+    /// @notice Flow 1.5: Declarative solver config storage, retrieval, and non-empty enforcement
+    function testSolverConfigStorageAndRetrieval() public {
+        string memory manifest = "eyJtb2RlbCI6ICJvYXNlcy1zb2x2ZXItdjEiLCAicGFyYW1zIjogInt9In0=";
+
+        vm.prank(creator);
+        bytes32 vaultId = vaultDriver.createVault(
+            marketId, "Solver Config Test", manifest, Side.Yes, 1e6, 100e6
+        );
+
+        assertEq(vault.solverConfig(vaultId), manifest, "solverConfig getter matches manifest");
+
+        bytes32[] memory mChildren = vault.getMarketVaults(marketId);
+        bool found = false;
+        for (uint256 i = 0; i < mChildren.length; i++) {
+            if (mChildren[i] == vaultId) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "Market vault list contains created vault");
+
+        // Mandatory non-empty check on Vault.createVault
+        vm.expectRevert("Vault: empty solver config");
+        vault.createVault(marketId, "Empty Solver Test", "", creator);
+
+        // Mandatory non-empty check on VaultDriver.createVault
+        vm.prank(creator);
+        vm.expectRevert("VaultDriver: empty solver config");
+        vaultDriver.createVault(marketId, "Empty Solver Driver Test", "", Side.Yes, 1e6, 100e6);
+    }
+
+    /// @notice Flow 1.5: Root-to-branch multi-vault tension cast yield distribution & dust solvency
+    function testInjectMarketYieldMultiVaultDistribution() public {
+        string memory manifestA = "eyJzb2x2ZXIiOiJ2YXVsdEEifQ==";
+        string memory manifestB = "eyJzb2x2ZXIiOiJ2YXVsdEIifQ==";
+
+        bytes32 marketDirectId = keccak256("DirectiveMarket");
+        marketRegistry.setMarket(marketDirectId, true);
+
+        // Create two child vaults under marketDirectId
+        bytes32 vaultA = vault.createVault(marketDirectId, "Directive Vault A", manifestA, creator);
+        bytes32 vaultB = vault.createVault(marketDirectId, "Directive Vault B", manifestB, creator);
+        marketRegistry.addVault(marketDirectId, vaultA);
+        marketRegistry.addVault(marketDirectId, vaultB);
+
+        bytes32[] memory directVaults = vault.getMarketVaults(marketDirectId);
+        assertEq(directVaults.length, 2, "Directive market has 2 child vaults");
+
+        // Fund Funder on Vault A Side.Yes
+        uint256 funderA = 555;
+        vault.onFund(funderA, vaultA, Side.Yes, 2e6, uint32(block.timestamp + 100));
+
+        // Inject 50 USDC across marketDirectId
+        vm.prank(yieldPayer);
+        vault.injectMarketYield(marketDirectId, 50e6);
+
+        // Both active child vaults receive exactly 25 USDC
+        assertEq(vault.yieldPot(vaultA), 25e6, "Vault A receives 25 USDC");
+        assertEq(vault.yieldPot(vaultB), 25e6, "Vault B receives 25 USDC");
+
+        // Advance and resolve Vault A as YES
+        vm.warp(block.timestamp + 50);
+        vault.onStop(funderA, vaultA, Side.Yes);
+        vault.resolve(vaultA, Vault.Outcome.Yes);
+
+        // Inject another 30 USDC across marketDirectId: Vault A is resolved, so ONLY Vault B receives it
+        vm.prank(yieldPayer);
+        vault.injectMarketYield(marketDirectId, 30e6);
+
+        assertEq(vault.yieldPot(vaultA), 25e6, "Resolved Vault A remains at 25 USDC");
+        assertEq(vault.yieldPot(vaultB), 55e6, "Active Vault B receives full 30 USDC, total 55 USDC");
+
+        // Test odd amount dust solvency: inject 25_000_001 wei across single active Vault B
+        vm.prank(yieldPayer);
+        vault.injectMarketYield(marketDirectId, 25_000_001);
+        assertEq(vault.yieldPot(vaultB), 55e6 + 25_000_001, "Vault B receives all injected wei");
+
+        // Warp past cycle boundary and collect pot for Vault A
+        vm.warp(block.timestamp + 20);
+        uint256 totalPotA = vault.collect(vaultA);
+        // Delivered funds: 50s * 2e6 = 100e6. Plus 25e6 yield pot = 125e6
+        assertEq(totalPotA, 125e6, "Total pot includes 100 USDC stream + 25 USDC injected yield");
+        usdc.mint(address(vault), totalPotA);
+
+        // Funder withdraws from Vault A: payout includes yield share!
+        uint256 payoutA = vault.withdraw(funderA, vaultA, creator);
+        assertEq(payoutA, 125e6, "Payout A captures 100% of winning pot including market yield");
     }
 }
 

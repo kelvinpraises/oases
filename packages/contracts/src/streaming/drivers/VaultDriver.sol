@@ -32,7 +32,13 @@ contract VaultDriver is SharedDriverUtils {
     }
 
     event StreamingSet(address indexed drips, address indexed usdc, uint32 driverId);
-    event VaultCreated(bytes32 indexed marketId, bytes32 indexed vaultId, address indexed creator, string question);
+    event VaultCreated(
+        bytes32 indexed marketId,
+        bytes32 indexed vaultId,
+        address indexed creator,
+        string question,
+        string solverConfig
+    );
     event SeedOpened(
         bytes32 indexed vaultId, address indexed creator, Side side, uint256 rate, uint256 deposit, uint32 maxEnd
     );
@@ -58,20 +64,28 @@ contract VaultDriver is SharedDriverUtils {
     }
 
     /// @notice Permissionless vault creation under an existing market with a mandatory directional seed.
-    function createVault(bytes32 marketId, string calldata question, Side seedSide, uint256 rate, uint256 deposit)
+    function createVault(
+        bytes32 marketId,
+        string calldata question,
+        string calldata solverConfig,
+        Side seedSide,
+        uint256 rate,
+        uint256 deposit
+    )
         external
         returns (bytes32 vaultId)
     {
         require(rate > 0, "VaultDriver: zero rate");
         require(deposit > 0 && deposit <= uint256(uint128(type(int128).max)), "VaultDriver: bad deposit");
         require(IMarketRegistry(protocol.marketRegistry()).marketExists(marketId), "VaultDriver: unknown market");
+        require(bytes(solverConfig).length > 0, "VaultDriver: empty solver config");
 
         address creator = _msgSender();
         Vault vault = Vault(protocol.vault());
 
-        vaultId = vault.createVault(marketId, question, creator);
+        vaultId = vault.createVault(marketId, question, solverConfig, creator);
         IMarketRegistry(protocol.marketRegistry()).addVault(marketId, vaultId);
-        emit VaultCreated(marketId, vaultId, creator, question);
+        emit VaultCreated(marketId, vaultId, creator, question, solverConfig);
 
         require(!seeds[vaultId][creator].active, "VaultDriver: seed exists");
 
@@ -158,7 +172,7 @@ contract VaultDriver is SharedDriverUtils {
     }
 
     function _assignReceiver(bytes32 vaultId, Side side) internal returns (uint256) {
-        (,,,,,,, bool exists) = Vault(protocol.vault()).vaults(vaultId);
+        (,,,,,,,, bool exists) = Vault(protocol.vault()).vaults(vaultId);
         require(exists, "VaultDriver: unknown vault");
         uint64 pid = poolIdOf[vaultId][side];
         if (pid == 0) {

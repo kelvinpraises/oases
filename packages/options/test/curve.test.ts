@@ -113,4 +113,44 @@ describe("curve TS parity", () => {
     const instantProjected = projectShares(instantInput);
     assert.equal(instantProjected, sharesFromG(input.position.rate, input.board.g, input.position.gPaid));
   });
+
+  it("projectShares automatically handles Unix timestamps in seconds (< 1e10)", () => {
+    const inputMs = {
+      board: {
+        pool: 5_000_000_000n,
+        sideRate: 10_000_000n,
+        g: 0n,
+        lastAdvanceMs: 1_700_000_000_000, // ms
+      },
+      position: {
+        rate: 2_000_000n,
+        gPaid: 0n,
+        maxEndMs: 1_700_000_060_000, // 60s
+        depleted: false,
+      },
+      atMs: 1_700_000_030_000, // 30s
+    };
+
+    const inputSeconds = {
+      board: {
+        pool: 5_000_000_000n,
+        sideRate: 10_000_000n,
+        g: 0n,
+        lastAdvanceMs: 1_700_000_000, // seconds
+      },
+      position: {
+        rate: 2_000_000n,
+        gPaid: 0n,
+        maxEndMs: 1_700_000_060, // seconds
+        depleted: false,
+      },
+      atMs: 1_700_000_030, // seconds
+    };
+
+    const sharesMs = projectShares(inputMs);
+    const sharesSec = projectShares(inputSeconds);
+
+    assert.ok(sharesMs > 0n);
+    assert.equal(sharesMs, sharesSec, "Projections must match whether timestamps are in seconds or ms");
+  });
 });

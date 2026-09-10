@@ -39,6 +39,7 @@ contract Vault {
         bytes32 id;
         bytes32 marketId;
         string question;
+        string solverConfig;
         address creator;
         Status status;
         Outcome outcome;
@@ -77,6 +78,7 @@ contract Vault {
     mapping(bytes32 => mapping(Side => Board)) public boards;
     mapping(bytes32 => mapping(Side => mapping(uint256 => Position))) internal _positions;
     mapping(bytes32 => uint256) public yieldPot;
+    mapping(bytes32 => bytes32[]) internal _marketVaults;
 
     // Depletion boundary queue per (vaultId, side)
     mapping(bytes32 => mapping(Side => Boundary[])) internal _boundaries;
@@ -93,12 +95,25 @@ contract Vault {
     mapping(uint256 => bytes32[]) internal _accountVaultIds;
     mapping(uint256 => mapping(bytes32 => bool)) internal _hasAccountVault;
 
-    event VaultCreated(bytes32 indexed vaultId, bytes32 indexed marketId, address indexed creator, string question);
+    event VaultCreated(
+        bytes32 indexed vaultId,
+        bytes32 indexed marketId,
+        address indexed creator,
+        string question,
+        string solverConfig
+    );
     event Funded(uint256 indexed account, bytes32 indexed vaultId, Side indexed side, uint256 rate, uint32 maxEnd);
     event Stopped(uint256 indexed account, bytes32 indexed vaultId, Side indexed side, uint256 sharesAccrued);
     event Withdrawn(uint256 indexed account, bytes32 indexed vaultId, address indexed to, uint256 payout);
     event Resolved(bytes32 indexed vaultId, Outcome outcome, uint32 resolvedAt);
     event YieldInjected(bytes32 indexed vaultId, address indexed sender, uint256 amount);
+    event MarketYieldInjected(
+        bytes32 indexed marketId,
+        address indexed sender,
+        uint256 totalAmount,
+        uint256 activeVaultCount,
+        uint256 perVaultAmount
+    );
     event Depleted(uint256 indexed account, bytes32 indexed vaultId, Side indexed side, uint32 maxEnd);
     event UncontestedFallback(bytes32 indexed vaultId, Side indexed winningSide, Side indexed fallbackSide);
 
@@ -120,14 +135,26 @@ contract Vault {
         );
     }
 
-    function createVault(bytes32 marketId_, string calldata question, address creator) external returns (bytes32 vaultId) {
-        vaultId = keccak256(abi.encodePacked(marketId_, question, creator, block.timestamp, vaultCount++));
+    function createVault(
+        bytes32 marketId_,
+        string calldata question,
+        string calldata solverConfig_,
+        address creator
+    ) external returns (bytes32 vaultId) {
+        require(creator != address(0), "Vault: zero creator");
+        require(bytes(question).length > 0, "Vault: empty question");
+        require(bytes(solverConfig_).length > 0, "Vault: empty solver config");
+
+        vaultId = keccak256(
+            abi.encodePacked(marketId_, question, solverConfig_, creator, block.timestamp, vaultCount++)
+        );
         require(!vaults[vaultId].exists, "Vault: collision");
 
         vaults[vaultId] = VaultData({
             id: vaultId,
             marketId: marketId_,
             question: question,
+            solverConfig: solverConfig_,
             creator: creator,
             status: Status.Open,
             outcome: Outcome.Pending,
@@ -138,12 +165,23 @@ contract Vault {
         boards[vaultId][Side.Yes].lastAdvance = uint32(block.timestamp);
         boards[vaultId][Side.No].lastAdvance = uint32(block.timestamp);
 
-        emit VaultCreated(vaultId, marketId_, creator, question);
+        _marketVaults[marketId_].push(vaultId);
+
+        emit VaultCreated(vaultId, marketId_, creator, question, solverConfig_);
     }
 
     function marketId(bytes32 vaultId) external view returns (bytes32) {
         require(vaults[vaultId].exists, "Vault: unknown vault");
         return vaults[vaultId].marketId;
+    }
+
+    function solverConfig(bytes32 vaultId) external view returns (string memory) {
+        require(vaults[vaultId].exists, "Vault: unknown vault");
+        return vaults[vaultId].solverConfig;
+    }
+
+    function getMarketVaults(bytes32 marketId_) external view returns (bytes32[] memory) {
+        return _marketVaults[marketId_];
     }
 
     function onFund(uint256 account, bytes32 vaultId, Side side, uint256 rate, uint32 maxEnd) external onlyFundingDriver {
@@ -267,6 +305,36 @@ contract Vault {
         yieldPot[vaultId] += amount;
         usdc.safeTransferFrom(msg.sender, address(this), amount);
         emit YieldInjected(vaultId, msg.sender, amount);
+    }
+
+    function injectMarketYield(bytes32 marketId_, uint256 amount) external {
+        require(amount > 0, "Vault: zero amount");
+        bytes32[] storage childVaults = _marketVaults[marketId_];
+        uint256 totalChildren = childVaults.length;
+        require(totalChildren > 0, "Vault: no child vaults");
+
+        // Count active, unresolved child vaults
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < totalChildren; i++) {
+            if (vaults[childVaults[i]].status != Status.Resolved) {
+                activeCount++;
+            }
+        }
+        require(activeCount > 0, "Vault: no active vaults in market");
+
+        uint256 perVaultAmount = amount / activeCount;
+        require(perVaultAmount > 0, "Vault: amount too small for active vaults");
+
+        for (uint256 i = 0; i < totalChildren; i++) {
+            bytes32 vId = childVaults[i];
+            if (vaults[vId].status != Status.Resolved) {
+                yieldPot[vId] += perVaultAmount;
+                emit YieldInjected(vId, msg.sender, perVaultAmount);
+            }
+        }
+
+        usdc.safeTransferFrom(msg.sender, address(this), amount);
+        emit MarketYieldInjected(marketId_, msg.sender, amount, activeCount, perVaultAmount);
     }
 
     function harvestVault(bytes32 vaultId) external {

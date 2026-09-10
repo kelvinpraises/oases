@@ -116,6 +116,11 @@ export interface LegacyProjectSharesInput {
 /**
  * Projects continuous share accrual for a funder from entry state (gPaid and board.g).
  */
+function toMs(ts: number | undefined): number | undefined {
+  if (ts === undefined) return undefined;
+  return ts < 10_000_000_000 ? ts * 1000 : ts;
+}
+
 export function projectShares(
   inputOrPool: ProjectSharesInput | LegacyProjectSharesInput | bigint,
   sideRateArg?: bigint,
@@ -128,17 +133,22 @@ export function projectShares(
       return sharesFromG(position.rate, board.g, position.gPaid);
     }
 
+    const lastAdvanceMs = toMs(board.lastAdvanceMs) ?? 0;
+    const atMsNorm = toMs(atMs) ?? 0;
+    const maxEndMsNorm = toMs(position.maxEndMs);
+    const resolvedAtMsNorm = toMs(resolvedAtMs);
+
     const freezeMs = Math.min(
-      atMs,
-      position.maxEndMs ?? atMs,
-      resolvedAtMs ?? atMs
+      atMsNorm,
+      maxEndMsNorm ?? atMsNorm,
+      resolvedAtMsNorm ?? atMsNorm
     );
 
-    if (freezeMs <= board.lastAdvanceMs) {
+    if (freezeMs <= lastAdvanceMs) {
       return sharesFromG(position.rate, board.g, position.gPaid);
     }
 
-    const dtSeconds = BigInt(Math.floor((freezeMs - board.lastAdvanceMs) / 1000));
+    const dtSeconds = BigInt(Math.floor((freezeMs - lastAdvanceMs) / 1000));
     const { dG } = segMath({ pool: board.pool, sideRate: board.sideRate, dt: dtSeconds });
     const gNow = board.g + dG;
 
