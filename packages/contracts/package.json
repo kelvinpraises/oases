@@ -2,9 +2,30 @@
   "name": "@oases/contracts",
   "version": "0.1.0",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./abis": "./src/abis.ts",
+    "./addresses": "./src/addresses.ts",
+    "./contract": "./src/contract.ts",
+    "./deployments/localhost": "./deployments/localhost.ts"
+  },
   "scripts": {
-    "build": "forge build",
-    "test": "forge test",
-    "clean": "forge clean"
+    "build:sol": "forge build",
+    "generate:abis": "wagmi generate",
+    "build": "forge build && wagmi generate",
+    "test": "forge test && node --import tsx --test test/**/*.test.ts",
+    "clean": "forge clean && rm -rf generated/abis.ts deploy/output",
+    "deploy": "tsx deploy/main.ts"
+  },
+  "dependencies": {
+    "viem": "^2.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@wagmi/cli": "^2.10.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
   }
 }
