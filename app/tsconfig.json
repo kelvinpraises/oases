@@ -5,6 +5,7 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "paths": {
+      "@/utils": ["./src/utils/index.ts"],
       "#/*": ["./src/*"],
       "@/*": ["./src/*"]
     },

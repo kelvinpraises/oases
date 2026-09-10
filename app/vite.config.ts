@@ -8,9 +8,16 @@ import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
   resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
+    alias: [
+      {
+        find: /^@\/utils$/,
+        replacement: fileURLToPath(new URL('./src/utils/index.ts', import.meta.url)),
+      },
+      {
+        find: '@',
+        replacement: fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    ],
   },
   plugins: [
     devtools(),
