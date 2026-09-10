@@ -1,8 +1,11 @@
 import { Buffer } from "node:buffer";
 import { deflateSync, inflateSync } from "node:zlib";
 import { createHash } from "node:crypto";
+import { create, all } from "mathjs";
 import { SolverManifest, SolverNode } from "./types";
 import { hasSafeTool } from "../tools/registry";
+
+const math = create(all);
 
 export class CompilerError extends Error {
   constructor(message: string) {
@@ -12,6 +15,41 @@ export class CompilerError extends Error {
 }
 
 export const MAX_LOOP_ITERATIONS = 100;
+
+interface MathASTNode {
+  isSymbolNode?: boolean;
+  name?: string;
+}
+
+function validateFormula(formula: string, scope: Set<string>, nodeId: string): void {
+  let ast: { filter: (predicate: (node: MathASTNode) => boolean) => MathASTNode[] };
+  try {
+    ast = math.parse(formula) as unknown as {
+      filter: (predicate: (node: MathASTNode) => boolean) => MathASTNode[];
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new CompilerError(`Node '${nodeId}': Syntax error in formula '${formula}': ${msg}`);
+  }
+
+  const symbolNodes = ast.filter((n: { isSymbolNode?: boolean; name?: string }) => Boolean(n.isSymbolNode));
+  for (const symNode of symbolNodes) {
+    const sym = symNode.name;
+    if (!sym) continue;
+    if (
+      sym in math ||
+      sym === "true" ||
+      sym === "false" ||
+      sym === "null" ||
+      sym === "undefined"
+    ) {
+      continue;
+    }
+    if (!scope.has(sym)) {
+      throw new CompilerError(`Node '${nodeId}': Formula references undeclared variable '${sym}'.`);
+    }
+  }
+}
 
 /**
  * Validates a solver manifest statically:
@@ -42,6 +80,7 @@ export function validateManifest(manifest: SolverManifest): void {
   }
 
   const availableVars = new Set<string>(Object.keys(manifest.globals));
+  const seenNodeIds = new Set<string>();
 
   function validateNodes(nodes: SolverNode[], parentScope: Set<string>): Set<string> {
     const scope = new Set<string>(parentScope);
@@ -51,6 +90,11 @@ export function validateManifest(manifest: SolverManifest): void {
         throw new CompilerError(`Invalid node: Node must have an id.`);
       }
 
+      if (seenNodeIds.has(node.id)) {
+        throw new CompilerError(`Duplicate node id '${node.id}'.`);
+      }
+      seenNodeIds.add(node.id);
+
       switch (node.type) {
         case "expr": {
           if (!node.formula || typeof node.formula !== "string") {
@@ -59,6 +103,7 @@ export function validateManifest(manifest: SolverManifest): void {
           if (!node.output || typeof node.output !== "string") {
             throw new CompilerError(`Node '${node.id}': Missing output variable name.`);
           }
+          validateFormula(node.formula, scope, node.id);
           scope.add(node.output);
           break;
         }
@@ -92,6 +137,7 @@ export function validateManifest(manifest: SolverManifest): void {
           if (!node.condition || typeof node.condition !== "string") {
             throw new CompilerError(`Node '${node.id}': Missing branch condition.`);
           }
+          validateFormula(node.condition, scope, node.id);
           if (!Array.isArray(node.then)) {
             throw new CompilerError(`Node '${node.id}': 'then' branch must be an array of nodes.`);
           }

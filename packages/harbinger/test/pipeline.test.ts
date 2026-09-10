@@ -107,6 +107,116 @@ describe("Circom-Style AST Pipeline & Dynamic Solver", () => {
       assert.deepEqual(decompressed, validManifest);
     });
 
+    it("rejects manifest with syntax error in formula", () => {
+      const badManifest: SolverManifest = {
+        version: "1.0.0",
+        globals: { a: "data.a" },
+        tree: [
+          {
+            type: "expr",
+            id: "bad_syntax",
+            formula: "a / * 2",
+            output: "health",
+          },
+        ],
+        resolution: { triggerVariable: "health" },
+      };
+
+      assert.throws(() => compileSolver(badManifest), /Syntax error in formula/);
+    });
+
+    it("rejects manifest with undeclared variable in formula", () => {
+      const badManifest: SolverManifest = {
+        version: "1.0.0",
+        globals: { collateral: "data.collateral" },
+        tree: [
+          {
+            type: "expr",
+            id: "bad_var",
+            formula: "ghostCollateral / 2",
+            output: "health",
+          },
+        ],
+        resolution: { triggerVariable: "health" },
+      };
+
+      assert.throws(
+        () => compileSolver(badManifest),
+        /Formula references undeclared variable 'ghostCollateral'/
+      );
+    });
+
+    it("rejects manifest with syntax error or undeclared variable in branch condition", () => {
+      const badSyntaxBranch: SolverManifest = {
+        version: "1.0.0",
+        globals: { val: "data.val" },
+        tree: [
+          {
+            type: "branch",
+            id: "bad_branch_syntax",
+            condition: "val > 10 && * /",
+            then: [],
+          },
+          {
+            type: "expr",
+            id: "dummy",
+            formula: "true",
+            output: "trig",
+          },
+        ],
+        resolution: { triggerVariable: "trig" },
+      };
+      assert.throws(() => compileSolver(badSyntaxBranch), /Syntax error in formula/);
+
+      const badVarBranch: SolverManifest = {
+        version: "1.0.0",
+        globals: { val: "data.val" },
+        tree: [
+          {
+            type: "branch",
+            id: "bad_branch_var",
+            condition: "ghostVar > 10",
+            then: [],
+          },
+          {
+            type: "expr",
+            id: "dummy",
+            formula: "true",
+            output: "trig",
+          },
+        ],
+        resolution: { triggerVariable: "trig" },
+      };
+      assert.throws(
+        () => compileSolver(badVarBranch),
+        /Formula references undeclared variable 'ghostVar'/
+      );
+    });
+
+    it("rejects manifest with duplicate node IDs", () => {
+      const badManifest: SolverManifest = {
+        version: "1.0.0",
+        globals: { a: "data.a" },
+        tree: [
+          {
+            type: "expr",
+            id: "same_id",
+            formula: "a + 1",
+            output: "out1",
+          },
+          {
+            type: "expr",
+            id: "same_id",
+            formula: "out1 + 2",
+            output: "out2",
+          },
+        ],
+        resolution: { triggerVariable: "out2" },
+      };
+
+      assert.throws(() => compileSolver(badManifest), /Duplicate node id 'same_id'/);
+    });
+
     it("rejects manifest with undeclared variable reference in call node", () => {
       const badManifest: SolverManifest = {
         version: "1.0.0",
