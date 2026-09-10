@@ -10,43 +10,80 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as CharactersRouteImport } from './routes/characters'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as CharacterIdRouteImport } from './routes/character.$id'
+import { Route as TensionCastIdRouteImport } from './routes/tension-cast.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const CharactersRoute = CharactersRouteImport.update({
+  id: '/characters',
+  path: '/characters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CharacterIdRoute = CharacterIdRouteImport.update({
+  id: '/character/$id',
+  path: '/character/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TensionCastIdRoute = TensionCastIdRouteImport.update({
+  id: '/tension-cast/$id',
+  path: '/tension-cast/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/characters': typeof CharactersRoute
+  '/home': typeof HomeRoute
+  '/character/$id': typeof CharacterIdRoute
+  '/tension-cast/$id': typeof TensionCastIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/characters': typeof CharactersRoute
+  '/home': typeof HomeRoute
+  '/character/$id': typeof CharacterIdRoute
+  '/tension-cast/$id': typeof TensionCastIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/characters': typeof CharactersRoute
+  '/home': typeof HomeRoute
+  '/character/$id': typeof CharacterIdRoute
+  '/tension-cast/$id': typeof TensionCastIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about'
+  fullPaths:
+    '/' | '/characters' | '/home' | '/character/$id' | '/tension-cast/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about'
-  id: '__root__' | '/' | '/about'
+  to: '/' | '/characters' | '/home' | '/character/$id' | '/tension-cast/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/characters'
+    | '/home'
+    | '/character/$id'
+    | '/tension-cast/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
+  CharactersRoute: typeof CharactersRoute
+  HomeRoute: typeof HomeRoute
+  CharacterIdRoute: typeof CharacterIdRoute
+  TensionCastIdRoute: typeof TensionCastIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +95,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/characters': {
+      id: '/characters'
+      path: '/characters'
+      fullPath: '/characters'
+      preLoaderRoute: typeof CharactersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/character/$id': {
+      id: '/character/$id'
+      path: '/character/$id'
+      fullPath: '/character/$id'
+      preLoaderRoute: typeof CharacterIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tension-cast/$id': {
+      id: '/tension-cast/$id'
+      path: '/tension-cast/$id'
+      fullPath: '/tension-cast/$id'
+      preLoaderRoute: typeof TensionCastIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -70,7 +128,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
+  CharactersRoute: CharactersRoute,
+  HomeRoute: HomeRoute,
+  CharacterIdRoute: CharacterIdRoute,
+  TensionCastIdRoute: TensionCastIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
