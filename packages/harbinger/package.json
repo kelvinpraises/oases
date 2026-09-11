@@ -8,14 +8,22 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "build": "tsc --noEmit"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "ethers": "^6.13.5",
-    "mathjs": "^15.2.0"
+    "kysely": "^0.29.5",
+    "mathjs": "^15.2.0",
+    "viem": "^2.56.3",
+    "ws": "^8.21.3",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/mathjs": "^9.4.1",
-    "@types/node": "^22.20.2"
+    "@types/node": "^22.20.2",
+    "@types/ws": "^8.18.1"
   }
 }
