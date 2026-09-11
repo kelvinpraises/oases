@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { WAD, ConvictionSide } from "@oases/options";
 import { registerConvictCommand } from "./commands/convict";
+import { registerHarbingerCommand } from "./commands/harbinger";
 
 const program = new Command();
 
@@ -21,5 +22,7 @@ program
   });
 
 registerConvictCommand(program);
+registerHarbingerCommand(program);
 
 program.parse(process.argv);
+
