@@ -24,6 +24,7 @@ export interface NeuralAgentInstance {
     context: PerceptionContext,
   ): Promise<void>;
   interruptAnalysis(marketId: string): boolean;
+  abortAll(): void;
   respondToUser(marketId: string, userMessage: string): Promise<string>;
   getMailboxPendingCount(marketId: string): number;
   isAnalyzing(marketId: string): boolean;
@@ -176,6 +177,15 @@ export function createNeuralAgent(
         return true;
       }
       return false;
+    },
+
+    abortAll(): void {
+      for (const controller of runningAnalyses.values()) {
+        controller.abort();
+      }
+      runningAnalyses.clear();
+      mailbox.clear();
+      isBusy.clear();
     },
 
     async respondToUser(marketId: string, userMessage: string): Promise<string> {

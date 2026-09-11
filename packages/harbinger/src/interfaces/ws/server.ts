@@ -138,6 +138,16 @@ export class WebSocketStreamServer {
       this.unsubscribeJournal = undefined;
     }
     for (const client of this.clients) {
+      try {
+        if (
+          client.readyState === WebSocket.OPEN ||
+          client.readyState === WebSocket.CONNECTING
+        ) {
+          client.close(1001, "Harbinger daemon shutting down");
+        }
+      } catch {
+        // Client already closed or unreachable
+      }
       client.terminate();
     }
     this.clients.clear();

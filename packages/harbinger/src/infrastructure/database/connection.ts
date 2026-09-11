@@ -39,6 +39,13 @@ export async function closeDatabase(): Promise<void> {
     activeDb = null;
   }
   if (rawSqlite) {
+    try {
+      if (rawSqlite.open) {
+        rawSqlite.pragma("wal_checkpoint(TRUNCATE)");
+      }
+    } catch {
+      // Safe catch for in-memory or already closed databases
+    }
     rawSqlite.close();
     rawSqlite = null;
   }

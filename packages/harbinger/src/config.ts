@@ -21,6 +21,7 @@ export const HarbingerConfigSchema = z.object({
     .optional(),
   dbPath: z.string().default(".data/harbinger.db"),
   wsPort: z.coerce.number().default(4001),
+  macroCadenceMs: z.coerce.number().optional(),
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
@@ -38,6 +39,7 @@ export function loadConfig(
   if (process.env.HARBINGER_VAULT_DRIVER !== undefined) envConfig.vaultDriverAddress = process.env.HARBINGER_VAULT_DRIVER;
   if (process.env.HARBINGER_DB_PATH !== undefined) envConfig.dbPath = process.env.HARBINGER_DB_PATH;
   if (process.env.HARBINGER_WS_PORT !== undefined) envConfig.wsPort = process.env.HARBINGER_WS_PORT;
+  if (process.env.HARBINGER_MACRO_CADENCE_MS !== undefined) envConfig.macroCadenceMs = process.env.HARBINGER_MACRO_CADENCE_MS;
   if (process.env.HARBINGER_LOG_LEVEL !== undefined) envConfig.logLevel = process.env.HARBINGER_LOG_LEVEL;
 
   return HarbingerConfigSchema.parse({

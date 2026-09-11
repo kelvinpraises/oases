@@ -8,7 +8,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --import tsx --test test/**/*.test.ts",
+    "test": "node --import tsx --test \"test/*.test.ts\" \"test/**/*.test.ts\"",
     "build": "tsc --noEmit"
   },
   "dependencies": {
