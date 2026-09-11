@@ -1,10 +1,7 @@
 import React, { createContext, useContext } from 'react'
-import { useWallet, type WalletState } from '@/hooks/use-wallet'
+import { useWallet } from '@/hooks/use-wallet'
 
-interface WalletContextType extends WalletState {
-  connect: () => Promise<void>
-  disconnect: () => void
-}
+type WalletContextType = ReturnType<typeof useWallet>
 
 const WalletContext = createContext<WalletContextType | null>(null)
 

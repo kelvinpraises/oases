@@ -13,10 +13,18 @@ export interface ChildVault {
   seedPotUSDC: number
   totalStreamedUSDC: number
   currentPriceP0: number
+  marketId?: string
+  vaultId?: string
+  yesPoolUSDC?: number
+  noPoolUSDC?: number
+  yesShares?: number
+  noShares?: number
+  resolvedOutcome?: number
 }
 
 export interface TensionCast {
   id: string
+  marketId?: string
   title: string
   description: string
   status: CastStatus

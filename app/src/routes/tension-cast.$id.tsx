@@ -1,17 +1,20 @@
+import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
   Clock,
   Stack,
   Coins,
-  ShieldCheck,
   Info,
+  CheckCircle,
+  Lightning,
 } from '@phosphor-icons/react'
 import { TerminalShell } from '@/components/template/terminal-shell'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/atoms/card'
 import { StatusPill } from '@/components/molecules/status-pill'
 import { ClassBadge } from '@/components/molecules/class-badge'
 import { Button } from '@/components/atoms/button'
+import { StreamForm } from '@/components/organisms/stream-form'
+import { JournalFeed } from '@/components/organisms/journal-feed'
 import { useTensionCast } from '@/hooks/use-tension-casts'
 import { formatBlockNumber, formatUSDC } from '@/utils/format-currency'
 
@@ -23,11 +26,17 @@ function TensionCastDetailPage() {
   const { id } = Route.useParams()
   const { tensionCast } = useTensionCast(id)
 
+  const [selectedVaultId, setSelectedVaultId] = useState<string | null>(null)
+
   if (!tensionCast) {
     return (
       <TerminalShell
         title="Tension Cast Not Found"
-        breadcrumbs={[{ label: 'Oases', href: '/home' }, { label: 'Tension Casts', href: '/home' }, { label: 'Unknown' }]}
+        breadcrumbs={[
+          { label: 'Oases', href: '/home' },
+          { label: 'Tension Casts', href: '/home' },
+          { label: 'Unknown' },
+        ]}
       >
         <div className="rounded-xl border border-neutral-200 bg-white p-12 text-center">
           <p className="text-sm font-medium text-neutral-900">
@@ -44,6 +53,11 @@ function TensionCastDetailPage() {
       </TerminalShell>
     )
   }
+
+  // Active selected child vault
+  const activeVault =
+    tensionCast.childVaults.find((v) => v.id === selectedVaultId) ??
+    tensionCast.childVaults[0]
 
   return (
     <TerminalShell
@@ -63,7 +77,7 @@ function TensionCastDetailPage() {
       <div className="space-y-8">
         {/* Directive Telemetry Header */}
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
             <span className="text-xs font-mono text-neutral-500 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-neutral-400" />
               Incident Block Horizon
@@ -76,7 +90,7 @@ function TensionCastDetailPage() {
             </span>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
             <span className="text-xs font-mono text-neutral-500 flex items-center gap-1.5">
               <Stack className="w-3.5 h-3.5 text-neutral-400" />
               Contagion Cluster
@@ -84,12 +98,12 @@ function TensionCastDetailPage() {
             <p className="mt-1 text-sm font-mono font-bold text-neutral-900">
               {tensionCast.childVaults.length} Child Conviction Vaults
             </p>
-            <span className="text-[11px] font-mono text-emerald-600">
-              Open Set (Actor, Place, Bond)
+            <span className="text-[11px] font-mono text-emerald-700 font-medium">
+              Open Multi-Vault Set
             </span>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
             <span className="text-xs font-mono text-neutral-500 flex items-center gap-1.5">
               <Coins className="w-3.5 h-3.5 text-neutral-400" />
               Protocol Seed Base
@@ -98,53 +112,68 @@ function TensionCastDetailPage() {
               $20.00 USDC Seed / Vault
             </p>
             <span className="text-[11px] font-mono text-neutral-500">
-              $10 YES / $10 NO Genesis
+              $10 YES / $10 NO Primed
             </span>
           </div>
         </div>
 
         {/* Child Conviction Vaults Cluster Grid */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-semibold font-display text-neutral-900">
-                Child Conviction Vaults ({tensionCast.childVaults.length})
+                Select Child Conviction Vault ({tensionCast.childVaults.length})
               </h2>
               <p className="text-xs text-neutral-500">
-                Independent continuous bonding curves evaluating correlated points of systemic failure.
+                Click any vault to direct your continuous capital stream into its bonding curve.
               </p>
             </div>
-            <div className="flex items-center gap-1 text-xs font-mono text-neutral-500">
-              <Info className="w-3.5 h-3.5" />
-              <span>Base Price P0 = 0.50 USDC</span>
+            <div className="flex items-center gap-1.5 text-xs font-mono text-neutral-600 bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200">
+              <Info className="w-3.5 h-3.5 text-neutral-500" />
+              <span>Base Price P₀ = $0.100 USDC</span>
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
-            {tensionCast.childVaults.map((vault) => (
-              <Card key={vault.id} className="flex flex-col justify-between hover:border-neutral-400 transition-colors">
-                <CardHeader className="space-y-2.5">
-                  <div className="flex items-center justify-between">
+          <div className="grid gap-4 md:grid-cols-3">
+            {tensionCast.childVaults.map((vault) => {
+              const isSelected = vault.id === activeVault?.id
+              return (
+                <div
+                  key={vault.id}
+                  onClick={() => setSelectedVaultId(vault.id)}
+                  className={`group cursor-pointer rounded-xl border p-4 transition-all ${
+                    isSelected
+                      ? 'border-neutral-900 bg-neutral-50/70 shadow-md ring-1 ring-neutral-900'
+                      : 'border-neutral-200 bg-white hover:border-neutral-400 hover:shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
                     <ClassBadge classType={vault.classType} />
-                    <StatusPill status={vault.status} />
+                    <div className="flex items-center gap-1.5">
+                      {isSelected && (
+                        <span className="flex items-center gap-1 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-mono text-white font-medium">
+                          <CheckCircle className="w-3 h-3 text-emerald-400" weight="fill" />
+                          SELECTED
+                        </span>
+                      )}
+                      <StatusPill status={vault.status} />
+                    </div>
                   </div>
 
-                  <div>
-                    <Link
-                      to="/character/$id"
-                      params={{ id: vault.characterId }}
-                      className="text-xs font-mono text-neutral-500 hover:text-neutral-900 transition-colors"
-                    >
-                      Target: {vault.characterName}
-                    </Link>
-                    <CardTitle className="text-sm font-semibold text-neutral-900 font-display mt-1 leading-snug">
-                      {vault.question}
-                    </CardTitle>
-                  </div>
-                </CardHeader>
+                  <Link
+                    to="/character/$id"
+                    params={{ id: vault.characterId }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs font-mono text-neutral-500 hover:text-neutral-900 transition-colors"
+                  >
+                    Target: {vault.characterName}
+                  </Link>
 
-                <CardContent className="space-y-3">
-                  <div className="rounded-md bg-neutral-50 border border-neutral-200 p-2.5 font-mono text-xs space-y-1">
+                  <h3 className="text-sm font-semibold text-neutral-900 font-display mt-1 leading-snug">
+                    {vault.question}
+                  </h3>
+
+                  <div className="mt-3 rounded-md bg-white border border-neutral-200 p-2 font-mono text-[11px] space-y-0.5">
                     <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">
                       Breach Invariant Gate
                     </span>
@@ -153,40 +182,44 @@ function TensionCastDetailPage() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
-                    <div className="space-y-0.5">
-                      <span className="text-neutral-400 text-[10px]">Seed Pot (P0)</span>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-mono pt-1 border-t border-neutral-100">
+                    <div>
+                      <span className="text-neutral-400 text-[10px]">Nominal Seed</span>
                       <p className="font-medium text-neutral-900">{formatUSDC(vault.seedPotUSDC)}</p>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-neutral-400 text-[10px]">Streamed Capital</span>
+                    <div>
+                      <span className="text-neutral-400 text-[10px]">Total Streamed</span>
                       <p className="font-semibold text-emerald-700">{formatUSDC(vault.totalStreamedUSDC)}</p>
                     </div>
                   </div>
-                </CardContent>
-
-                <CardFooter className="border-t border-neutral-100 pt-3">
-                  <div className="w-full flex items-center justify-between text-xs font-mono">
-                    <span className="text-neutral-400 text-[11px]">Drips Stream Ready</span>
-                    <span className="text-neutral-800 font-medium">Flow 2 Engine</span>
-                  </div>
-                </CardFooter>
-              </Card>
-            ))}
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        {/* Cold Start Resolution Info */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm space-y-2">
-          <h4 className="text-xs font-mono font-semibold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-neutral-700" />
-            Continuous Conviction Market Mechanics
-          </h4>
-          <p className="text-xs text-neutral-600 leading-relaxed max-w-4xl">
-            Child vaults are initialized via nominal protocol seeding ($20 USDC) at $P_0 = 0.50$.
-            Capital streams continuously via Solady FixedPointMathLib continuous logarithmic area integrals (<code>lnWad</code>).
-            Zero deadlocks: Early alpha discovery is fully rewarded from genesis.
-          </p>
+        {/* Selected Child Vault Stream Form Section */}
+        {activeVault && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Lightning className="w-4 h-4 text-amber-600" weight="fill" />
+              <h3 className="font-display font-semibold text-sm text-neutral-900">
+                Streaming Target: {activeVault.characterName} — {activeVault.question}
+              </h3>
+            </div>
+            <StreamForm
+              vault={activeVault}
+              marketId={tensionCast.marketId}
+            />
+          </div>
+        )}
+
+        {/* Live Detective Thought Journal Section */}
+        <div className="space-y-3">
+          <JournalFeed
+            title="Incident Detective Reasoning Stream"
+            subtitle={`Real-time Mastra AI detective thought stream monitoring ${tensionCast.title}`}
+          />
         </div>
       </div>
     </TerminalShell>

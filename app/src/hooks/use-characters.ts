@@ -1,19 +1,19 @@
 import { useState, useMemo } from 'react'
 import type { ProtocolCharacter, PhysicalClass } from '@/types/character'
 
-const PROTOCOL_CHARACTERS: ProtocolCharacter[] = [
+export const PROTOCOL_CHARACTERS: ProtocolCharacter[] = [
   {
     id: 'actor-whale-0x7a',
     name: 'Aave Whale 0x7a',
     classType: 'Actor',
     subClass: 'Whale',
-    targetAddress: '0x7a16ff8270133f063aab6c9977183d9e72835428',
+    targetAddress: '0x7a16fF8270133F063aAb6C9977183D9e72835428',
     subgraphEndpoint: 'https://gateway.thegraph.com/api/subgraphs/id/aave-v3-standard',
     primaryMetric: 'healthFactor',
     currentMetricValue: '1.12',
     anomalyStatus: 'STRAIN',
     description:
-      'High-leverage lending market account holding heavy volatile collateral against USDC borrow lines.',
+      'High-leverage lending market account holding heavy volatile collateral against USDC borrow lines on Aave v3 Ethereum.',
     activeTensionCastIds: ['tc-aave-crv-cascade'],
   },
   {
@@ -23,8 +23,8 @@ const PROTOCOL_CHARACTERS: ProtocolCharacter[] = [
     subClass: 'Bank',
     targetAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
     subgraphEndpoint: 'https://gateway.thegraph.com/api/subgraphs/id/lending-standard',
-    primaryMetric: 'utilizationRate',
-    currentMetricValue: '84.5%',
+    primaryMetric: 'availableLiquidityUSD',
+    currentMetricValue: '$42,850,000',
     anomalyStatus: 'STIR',
     description:
       'Primary liquidity reservoir absorbing borrow stress and collateral redeployments.',
@@ -32,16 +32,16 @@ const PROTOCOL_CHARACTERS: ProtocolCharacter[] = [
   },
   {
     id: 'bond-whale-debt',
-    name: '0x7a USDC Debt Coupling',
+    name: '0x7a CRV Debt Coupling',
     classType: 'Bond',
     subClass: 'Anchor',
-    targetAddress: '0x7a16ff8270133f063aab6c9977183d9e72835428',
+    targetAddress: '0x7a-aave-crv-debt',
     subgraphEndpoint: 'https://gateway.thegraph.com/api/subgraphs/id/lending-standard',
-    primaryMetric: 'totalDebtUSD',
+    primaryMetric: 'totalBorrowBalanceUSD',
     currentMetricValue: '$14,280,000',
     anomalyStatus: 'STRAIN',
     description:
-      'Relational debt invariant coupling Whale 0x7a debt to Aave v3 USDC reserve liquidity.',
+      'Relational debt invariant coupling Whale 0x7a CRV debt to Aave v3 USDC reserve liquidity.',
     activeTensionCastIds: ['tc-aave-crv-cascade'],
   },
   {

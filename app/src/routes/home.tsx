@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Radio, Compass, ShieldWarning, ArrowRight } from '@phosphor-icons/react'
 import { TerminalShell } from '@/components/template/terminal-shell'
 import { TensionCastCard } from '@/components/organisms/tension-cast-card'
+import { JournalFeed } from '@/components/organisms/journal-feed'
 import { useTensionCasts } from '@/hooks/use-tension-casts'
 
 export const Route = createFileRoute('/home')({
@@ -78,6 +79,14 @@ function HomePage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Global Live Detective Reasoning Terminal */}
+        <div className="space-y-4">
+          <JournalFeed
+            title="Global Protocol Detective Stream"
+            subtitle="Autonomous Mastra AI agent actively monitoring health factors, liquidity reserves, and invariant stability"
+          />
         </div>
       </div>
     </TerminalShell>
