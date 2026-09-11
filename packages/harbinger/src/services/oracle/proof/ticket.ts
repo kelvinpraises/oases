@@ -1,4 +1,4 @@
-import { SolverManifest } from "../pipeline/types";
+import { SolverManifest } from "../ast/types";
 import {
   BlockSnapshot,
   PrecedenceProof,

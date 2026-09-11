@@ -7,9 +7,10 @@ import {
   decompressSolver,
   CompilerError,
   runPipeline,
-  SolverManifest,
-} from "../src/pipeline/index";
-import { RATIO_HASH, THRESHOLD_HASH } from "../src/tools/index";
+  type SolverManifest,
+  RATIO_HASH,
+  THRESHOLD_HASH,
+} from "../src/services/oracle";
 
 describe("Circom-Style AST Pipeline & Dynamic Solver", () => {
   describe("JSONPath Extractor", () => {

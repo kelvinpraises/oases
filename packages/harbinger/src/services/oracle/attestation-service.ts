@@ -1,14 +1,14 @@
 import {
   buildReplayTicket,
   verifyReplayTicket,
-} from "../../proof/ticket";
+} from "./proof/ticket";
 import type {
   ResolutionDecision,
   PrecedenceProof,
   BlockSnapshot,
   ReplayTicket,
   TicketVerificationResult,
-} from "../../proof/types";
+} from "./proof/types";
 
 export { buildReplayTicket, verifyReplayTicket };
 export type {

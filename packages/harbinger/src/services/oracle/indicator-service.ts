@@ -5,16 +5,16 @@ import {
   hasSafeTool,
   computeToolHash,
   SecurityBlockError,
-} from "../../tools/registry";
-import { ratioFn, ratioTool } from "../../tools/ratio";
-import { deltaFn, deltaTool } from "../../tools/delta";
-import { thresholdFn, thresholdTool } from "../../tools/threshold";
+} from "./indicators/registry";
+import { ratioFn, ratioTool } from "./indicators/ratio";
+import { deltaFn, deltaTool } from "./indicators/delta";
+import { thresholdFn, thresholdTool } from "./indicators/threshold";
 import type {
   PureToolFn,
   RegisteredTool,
   ToolContext,
   ToolDefinition,
-} from "../../tools/types";
+} from "./indicators/types";
 
 export const ratio = ratioFn;
 export const delta = deltaFn;

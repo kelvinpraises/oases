@@ -8,7 +8,7 @@ import { FreshnessService } from "../src/services/graph/freshness-service";
 import { GraphClient } from "../src/services/graph/graph-client";
 import { getDatabase, closeDatabase } from "../src/infrastructure/database/connection";
 import { compileAndCompressSolver } from "../src/services/oracle/solver-service";
-import type { SolverManifest } from "../src/pipeline/types";
+import type { SolverManifest } from "../src/services/oracle";
 import type { Job } from "../src/models/Job";
 import type { Kysely } from "kysely";
 import type { HarbingerDB } from "../src/infrastructure/database/schema";

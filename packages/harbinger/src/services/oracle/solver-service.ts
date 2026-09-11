@@ -2,7 +2,7 @@ import {
   extractSignals,
   resolveJsonPath,
   ExtractionError,
-} from "../../pipeline/extract";
+} from "./ast/extract";
 import {
   compileSolver,
   decompressSolver,
@@ -10,11 +10,11 @@ import {
   decodeManifest,
   CompilerError,
   MAX_LOOP_ITERATIONS,
-} from "../../pipeline/compiler";
+} from "./ast/compiler";
 import {
   runPipeline,
   SolverRuntime,
-} from "../../pipeline/runtime";
+} from "./ast/runtime";
 import type {
   SolverManifest,
   SolverNode,
@@ -24,7 +24,7 @@ import type {
   LoopNode,
   ExecutionStepTrace,
   PipelineExecutionResult,
-} from "../../pipeline/types";
+} from "./ast/types";
 
 export {
   extractSignals,

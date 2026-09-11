@@ -1,5 +1,5 @@
 import { create, all } from "mathjs";
-import { getSafeToolByHash } from "../tools/registry";
+import { getSafeToolByHash } from "../indicators/registry";
 import { extractSignals } from "./extract";
 import { decompressSolver } from "./compiler";
 import {

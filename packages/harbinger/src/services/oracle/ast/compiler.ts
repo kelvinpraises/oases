@@ -3,7 +3,7 @@ import { deflateSync, inflateSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { create, all } from "mathjs";
 import { SolverManifest, SolverNode } from "./types";
-import { hasSafeTool } from "../tools/registry";
+import { hasSafeTool } from "../indicators/registry";
 
 const math = create(all);
 

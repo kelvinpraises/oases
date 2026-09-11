@@ -4,8 +4,8 @@ import {
   evaluatePrecedence,
   buildReplayTicket,
   verifyReplayTicket,
-} from "../src/proof/index";
-import { SolverManifest } from "../src/pipeline/types";
+  type SolverManifest,
+} from "../src/services/oracle";
 
 describe("Hierarchical Precedence Proof & Replay Ticket", () => {
   const startBlock = 20000000;

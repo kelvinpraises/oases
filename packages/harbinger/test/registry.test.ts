@@ -8,7 +8,7 @@ import {
   hasSafeTool,
   registerSafeTool,
   SecurityBlockError,
-} from "../src/tools/index";
+} from "../src/services/oracle";
 
 describe("Tool Registry & Content Hashing Whitelist", () => {
   it("pre-registers canonical starter tools with valid SHA-256 hashes", () => {

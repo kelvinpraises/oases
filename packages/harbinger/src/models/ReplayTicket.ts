@@ -4,6 +4,5 @@ export type {
   BlockSnapshot,
   ReplayTicket,
   TicketVerificationResult,
-} from "../proof/types";
-
-export type { PrecedenceInput } from "../proof/precedence";
+  PrecedenceInput,
+} from "../services/oracle";

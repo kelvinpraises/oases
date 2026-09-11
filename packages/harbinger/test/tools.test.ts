@@ -7,7 +7,7 @@ import {
   deltaTool,
   thresholdFn,
   thresholdTool,
-} from "../src/tools/index";
+} from "../src/services/oracle";
 
 describe("Community Indicator Tools", () => {
   describe("ratio tool", () => {
