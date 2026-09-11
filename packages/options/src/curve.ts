@@ -99,6 +99,7 @@ export interface ProjectSharesInput {
   position: {
     rate: bigint;
     gPaid: bigint;
+    sharesAccrued?: bigint;
     maxEndMs?: number;
     depleted: boolean;
   };
@@ -115,6 +116,7 @@ export interface LegacyProjectSharesInput {
 
 /**
  * Projects continuous share accrual for a funder from entry state (gPaid and board.g).
+ * Accrued shares are in 6-decimal SHARE_SCALE (matching Vault.sol pendingShares).
  */
 function toMs(ts: number | undefined): number | undefined {
   if (ts === undefined) return undefined;
@@ -129,8 +131,10 @@ export function projectShares(
 ): bigint {
   if (typeof inputOrPool === "object" && "board" in inputOrPool) {
     const { board, position, atMs, resolvedAtMs } = inputOrPool;
+    const baseAccrued = position.sharesAccrued ?? 0n;
+
     if (position.depleted || position.rate === 0n || board.sideRate === 0n) {
-      return sharesFromG(position.rate, board.g, position.gPaid);
+      return (baseAccrued + position.rate * (board.g - position.gPaid)) / WAD;
     }
 
     const lastAdvanceMs = toMs(board.lastAdvanceMs) ?? 0;
@@ -145,14 +149,14 @@ export function projectShares(
     );
 
     if (freezeMs <= lastAdvanceMs) {
-      return sharesFromG(position.rate, board.g, position.gPaid);
+      return (baseAccrued + position.rate * (board.g - position.gPaid)) / WAD;
     }
 
     const dtSeconds = BigInt(Math.floor((freezeMs - lastAdvanceMs) / 1000));
     const { dG } = segMath({ pool: board.pool, sideRate: board.sideRate, dt: dtSeconds });
     const gNow = board.g + dG;
 
-    return sharesFromG(position.rate, gNow, position.gPaid);
+    return (baseAccrued + position.rate * (gNow - position.gPaid)) / WAD;
   }
 
   // Legacy fallback for simple dt-based projection

@@ -153,4 +153,50 @@ describe("curve TS parity", () => {
     assert.ok(sharesMs > 0n);
     assert.equal(sharesMs, sharesSec, "Projections must match whether timestamps are in seconds or ms");
   });
+
+  it("projectShares preserves sharesAccrued when position is depleted or paused", () => {
+    // 50 shares banked (50 * 1e6 * 1e18 WAD-scaled)
+    const bankedSharesWad = 50_000_000n * WAD;
+
+    const depletedInput = {
+      board: {
+        pool: 5_000_000_000n,
+        sideRate: 0n,
+        g: 100_000_000_000_000_000n,
+        lastAdvanceMs: 1_700_000_000,
+      },
+      position: {
+        rate: 0n,
+        gPaid: 100_000_000_000_000_000n,
+        sharesAccrued: bankedSharesWad,
+        depleted: true,
+      },
+      atMs: 1_700_000_100,
+    };
+
+    const shares = projectShares(depletedInput);
+    assert.equal(shares, 50_000_000n, "Must return banked sharesAccrued when depleted");
+
+    // When actively accumulating on top of banked shares
+    const activeWithBanked = {
+      board: {
+        pool: 5_000_000_000n,
+        sideRate: 10_000_000n,
+        g: 0n,
+        lastAdvanceMs: 1_700_000_000,
+      },
+      position: {
+        rate: 2_000_000n,
+        gPaid: 0n,
+        sharesAccrued: bankedSharesWad,
+        maxEndMs: 1_700_000_060,
+        depleted: false,
+      },
+      atMs: 1_700_000_030,
+    };
+
+    const totalProjected = projectShares(activeWithBanked);
+    assert.ok(totalProjected > 50_000_000n, "Total projected shares must exceed banked shares");
+  });
 });
+

@@ -23,19 +23,20 @@ describe("unit conversion & formatting parity", () => {
     assert.equal(rawToUsdc(0n), 0);
   });
 
-  it("converts rate between float USDC/sec and WAD/sec", () => {
-    const oneWad = WAD_SCALE; // 1e18
-    assert.equal(rateToPerSec(oneWad), 1.0);
-    assert.equal(rateToPerSec(oneWad / 2n), 0.5);
+  it("converts rate between float USDC/sec and 6-decimal raw integer rate", () => {
+    const oneUsdcSec = 1_000_000n; // 1.0 USDC/sec
+    assert.equal(rateToPerSec(oneUsdcSec), 1.0);
+    assert.equal(rateToPerSec(oneUsdcSec / 2n), 0.5);
 
-    assert.equal(perSecToRate(1.0), oneWad);
-    assert.equal(perSecToRate(0.5), oneWad / 2n);
-    assert.equal(perSecToRate(2.5), (oneWad * 5n) / 2n);
+    assert.equal(perSecToRate(1.0), oneUsdcSec);
+    assert.equal(perSecToRate(0.5), oneUsdcSec / 2n);
+    assert.equal(perSecToRate(2.5), (oneUsdcSec * 5n) / 2n);
   });
 
-  it("converts WAD shares to human readable float", () => {
-    assert.equal(sharesToNumber(WAD_SCALE), 1.0);
-    assert.equal(sharesToNumber(WAD_SCALE * 100n), 100.0);
+  it("converts 6-decimal shares to human readable float", () => {
+    const oneShare = 1_000_000n; // 1.0 share (SHARE_SCALE = 1e6)
+    assert.equal(sharesToNumber(oneShare), 1.0);
+    assert.equal(sharesToNumber(oneShare * 100n), 100.0);
     assert.equal(sharesToNumber(0n), 0.0);
   });
 
