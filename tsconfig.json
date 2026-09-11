@@ -1,5 +1,11 @@
 {
   "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["packages/harbinger/src/*"]
+    }
+  },
   "include": [
     "packages/*/src/**/*",
     "cli/src/**/*"
