@@ -6,8 +6,7 @@ import {
   rateToPerSec,
   perSecToRate,
   sharesToNumber,
-  formatUsdc,
-  WAD_SCALE
+  formatUsdc
 } from "../src/units.js";
 
 describe("unit conversion & formatting parity", () => {
