@@ -14,7 +14,7 @@ describe("Flow 6 — Master Harbinger Integration Test Suite", () => {
   before(async () => {
     harness = await bootHarbingerDaemon({
       dbPath: ":memory:",
-      wsPort: 49152, // High ephemeral test port
+      wsPort: 49160, // High ephemeral test port
       chainId: 31337,
     });
   });
