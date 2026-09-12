@@ -3,37 +3,45 @@ import {
   TrendUp,
   Coins,
   Sparkle,
-  Database,
+  Lightning,
 } from '@phosphor-icons/react'
+import { usePitches } from '@/hooks/use-pitches'
 import { formatUSDC } from '@/utils/format-currency'
 import type { ChildVault } from '@/types/tension-cast'
 
 interface YieldHUDProps {
   vault: ChildVault
   injectedYieldUSDC?: number
-  queryCount?: number
   className?: string
 }
 
 export function YieldHUD({
   vault,
   injectedYieldUSDC,
-  queryCount,
   className = '',
 }: YieldHUDProps) {
-  // Pot components
-  const actualYield = injectedYieldUSDC ?? vault.injectedYieldUSDC ?? 42.5
-  const actualQueries = queryCount ?? vault.queryCount ?? Math.round(actualYield / 0.05)
-  const seedPot = vault.seedPotUSDC
-  const participantStream = Math.max(0, vault.totalStreamedUSDC - seedPot)
-  const totalPrizePot = seedPot + participantStream + actualYield
+  const { totalPitchYieldUSDC } = usePitches()
 
-  // Positive sum multiplier: total prize vs participant deposits
+  // 3-Part Pot Architecture
+  // 1. Genesis Seed ($20.00 default)
+  const seedPot = vault.seedPotUSDC || 20.0
+  // 2. Streamed Conviction (Participant streams)
+  const streamedConviction = Math.max(0, vault.totalStreamedUSDC - seedPot)
+  // 3. Pitch Economy Yield ($4.00 per verified pitch)
+  const pitchYield = injectedYieldUSDC ?? (vault.injectedYieldUSDC || totalPitchYieldUSDC || 8.0)
+  const effectivePitchCount = Math.round(pitchYield / 4.0)
+
+  // Total boosted prize pot
+  const totalPrizePot = seedPot + streamedConviction + pitchYield
+
+  // Subsidized yield boost percentage
+  const baseline = seedPot + streamedConviction
   const yieldBonusPercent = useMemo(() => {
-    const baseline = seedPot + participantStream
     if (baseline <= 0) return '0.0'
-    return ((actualYield / baseline) * 100).toFixed(1)
-  }, [seedPot, participantStream, actualYield])
+    return ((pitchYield / baseline) * 100).toFixed(1)
+  }, [baseline, pitchYield])
+
+  const multiplier = baseline > 0 ? (totalPrizePot / baseline).toFixed(2) : '1.00'
 
   return (
     <div className={`rounded-xl border border-neutral-200 bg-white p-5 shadow-sm space-y-5 ${className}`}>
@@ -46,11 +54,11 @@ export function YieldHUD({
             </h3>
             <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-800 border border-emerald-200">
               <TrendUp className="w-3 h-3 text-emerald-600" weight="bold" />
-              +{yieldBonusPercent}% SUBSIDIZED
+              +{yieldBonusPercent}% SUBSIDIZED YIELD
             </span>
           </div>
           <p className="text-xs text-neutral-500 font-sans mt-0.5">
-            Real-time prize pool expansion from external Blocky402 telemetry query fees (<code>Vault.injectYield</code>)
+            Continuous prize pool expansion subsidized by the Pitch Economy ($4.00 / verified anomaly thesis)
           </p>
         </div>
 
@@ -70,23 +78,23 @@ export function YieldHUD({
         </div>
 
         <div className="h-3 w-full rounded-full bg-neutral-100 flex overflow-hidden p-0.5 gap-0.5">
-          {/* Seed Segment */}
+          {/* 1. Genesis Seed */}
           <div
             className="h-full rounded-full bg-neutral-400 transition-all"
-            style={{ width: `${Math.max(5, (seedPot / totalPrizePot) * 100)}%` }}
+            style={{ width: `${Math.max(8, (seedPot / totalPrizePot) * 100)}%` }}
             title={`Genesis Seed: ${formatUSDC(seedPot)}`}
           />
-          {/* Participant Stream Segment */}
+          {/* 2. Streamed Conviction */}
           <div
             className="h-full rounded-full bg-neutral-900 transition-all"
-            style={{ width: `${Math.max(5, (participantStream / totalPrizePot) * 100)}%` }}
-            title={`Participant Streams: ${formatUSDC(participantStream)}`}
+            style={{ width: `${Math.max(8, (streamedConviction / totalPrizePot) * 100)}%` }}
+            title={`Streamed Conviction: ${formatUSDC(streamedConviction)}`}
           />
-          {/* Injected Lake Yield Segment */}
+          {/* 3. Pitch Economy Yield */}
           <div
             className="h-full rounded-full bg-emerald-500 transition-all"
-            style={{ width: `${Math.max(5, (actualYield / totalPrizePot) * 100)}%` }}
-            title={`Injected Lake Yield: ${formatUSDC(actualYield)}`}
+            style={{ width: `${Math.max(8, (pitchYield / totalPrizePot) * 100)}%` }}
+            title={`Pitch Economy Yield: ${formatUSDC(pitchYield)}`}
           />
         </div>
 
@@ -94,25 +102,25 @@ export function YieldHUD({
         <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono text-neutral-600 pt-1">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-neutral-400" />
-            <span>Genesis Seed ({formatUSDC(seedPot)})</span>
+            <span>1. Genesis Seed ({formatUSDC(seedPot)})</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-neutral-900" />
-            <span>Participant Conviction ({formatUSDC(participantStream)})</span>
+            <span>2. Streamed Conviction ({formatUSDC(streamedConviction)})</span>
           </div>
           <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span>Injected Lake Yield ({formatUSDC(actualYield)})</span>
+            <span>3. Pitch Economy Yield ({formatUSDC(pitchYield)})</span>
           </div>
         </div>
       </div>
 
-      {/* 3 Metric Cards Grid */}
+      {/* 3 Pot Metric Cards Grid */}
       <div className="grid gap-3 sm:grid-cols-3 font-mono text-xs">
         <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 p-3">
           <span className="text-[10px] text-neutral-400 uppercase flex items-center gap-1">
             <Coins className="w-3.5 h-3.5 text-neutral-500" />
-            Genesis Seed Base
+            1. Genesis Seed Base
           </span>
           <div className="mt-1 font-bold text-neutral-900 text-sm">
             {formatUSDC(seedPot)}
@@ -122,24 +130,26 @@ export function YieldHUD({
 
         <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 p-3">
           <span className="text-[10px] text-neutral-400 uppercase flex items-center gap-1">
-            <Database className="w-3.5 h-3.5 text-neutral-500" />
-            x402 Lake Micropayments
+            <Lightning className="w-3.5 h-3.5 text-emerald-600" weight="fill" />
+            2. Pitch Economy Injections
           </span>
           <div className="mt-1 font-bold text-emerald-700 text-sm">
-            +{formatUSDC(actualYield)}
+            +{formatUSDC(pitchYield)}
           </div>
-          <span className="text-[10px] text-neutral-500">{actualQueries} telemetry queries</span>
+          <span className="text-[10px] text-neutral-500">
+            {effectivePitchCount} verified {effectivePitchCount === 1 ? 'pitch' : 'pitches'} ($4/ea)
+          </span>
         </div>
 
         <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 p-3">
           <span className="text-[10px] text-neutral-400 uppercase flex items-center gap-1">
             <Sparkle className="w-3.5 h-3.5 text-neutral-500" />
-            Positive-Sum Advantage
+            3. Positive-Sum Multiplier
           </span>
           <div className="mt-1 font-bold text-neutral-900 text-sm">
-            {((totalPrizePot / (seedPot + participantStream)) * 1.0).toFixed(2)}x Multiplier
+            {multiplier}x Pot Value
           </div>
-          <span className="text-[10px] text-emerald-700">Winner payout &gt; total bets</span>
+          <span className="text-[10px] text-emerald-700">Winner payout &gt; total deposits</span>
         </div>
       </div>
     </div>

@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Radio, Compass, ShieldWarning, ArrowRight } from '@phosphor-icons/react'
+import { Radio, Compass, ShieldWarning, ArrowRight, Plus } from '@phosphor-icons/react'
+import { Button } from '@/components/atoms/button'
 import { TerminalShell } from '@/components/template/terminal-shell'
 import { TensionCastCard } from '@/components/organisms/tension-cast-card'
 import { JournalFeed } from '@/components/organisms/journal-feed'
+import { PitchFeed } from '@/components/organisms/pitch-feed'
+import { PitchDrawer } from '@/components/organisms/pitch-drawer'
 import { useTensionCasts } from '@/hooks/use-tension-casts'
 
 export const Route = createFileRoute('/home')({
@@ -11,6 +15,7 @@ export const Route = createFileRoute('/home')({
 
 function HomePage() {
   const { tensionCasts, activeCount } = useTensionCasts()
+  const [isPitchDrawerOpen, setIsPitchDrawerOpen] = useState(false)
 
   return (
     <TerminalShell
@@ -18,9 +23,21 @@ function HomePage() {
       subtitle="Source Directives coordinating multi-vault conviction markets over indexed Ethereum state space."
       breadcrumbs={[{ label: 'Oases' }, { label: 'Tension Casts' }]}
       actions={
-        <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-mono text-neutral-700">
-          <Radio className="w-4 h-4 text-emerald-600 animate-pulse" weight="bold" />
-          <span>{activeCount} Active Directives</span>
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-mono text-neutral-700">
+            <Radio className="w-4 h-4 text-emerald-600 animate-pulse" weight="bold" />
+            <span>{activeCount} Active Directives</span>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setIsPitchDrawerOpen(true)}
+            className="bg-neutral-900 hover:bg-neutral-800 text-white font-mono text-xs gap-1.5 h-8 font-semibold shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" weight="bold" />
+            Pitch Anomaly
+          </Button>
         </div>
       }
     >
@@ -81,6 +98,11 @@ function HomePage() {
           )}
         </div>
 
+        {/* Live Pitch Activity Feed Ticker */}
+        <div className="space-y-4">
+          <PitchFeed />
+        </div>
+
         {/* Global Live Detective Reasoning Terminal */}
         <div className="space-y-4">
           <JournalFeed
@@ -89,6 +111,12 @@ function HomePage() {
           />
         </div>
       </div>
+
+      {/* Anomaly Pitch Drawer */}
+      <PitchDrawer
+        isOpen={isPitchDrawerOpen}
+        onClose={() => setIsPitchDrawerOpen(false)}
+      />
     </TerminalShell>
   )
 }

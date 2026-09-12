@@ -16,6 +16,7 @@ import {
   type OptionsWriter,
   rawToUsdc,
 } from '@oases/options'
+import { mockUsdcAbi } from '@oases/contracts'
 
 declare global {
   interface Window {
@@ -31,6 +32,20 @@ export const anvilLocalhost: Chain = {
     default: { http: ['http://127.0.0.1:8545'] },
   },
 }
+
+export const hederaTestnet: Chain = {
+  id: 296,
+  name: 'Hedera Testnet',
+  nativeCurrency: { name: 'HBAR', symbol: 'HBAR', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet.hashio.io/api'] },
+  },
+  blockExplorers: {
+    default: { name: 'HashScan', url: 'https://hashscan.io/testnet' },
+  },
+}
+
+export const SUPPORTED_CHAINS = [anvilLocalhost, hederaTestnet]
 
 export interface WalletState {
   isConnected: boolean
@@ -61,19 +76,25 @@ export function useWallet() {
     writer: null,
   })
 
+  // Active chain definition
+  const activeChain = useMemo(() => {
+    if (state.chainId === 296) return hederaTestnet
+    return anvilLocalhost
+  }, [state.chainId])
+
   // Create public client for reads
   const publicClient = useMemo(() => {
     if (typeof window !== 'undefined' && window.ethereum) {
       return createPublicClient({
-        chain: anvilLocalhost,
+        chain: activeChain,
         transport: custom(window.ethereum),
       })
     }
     return createPublicClient({
-      chain: anvilLocalhost,
-      transport: http('http://127.0.0.1:8545'),
+      chain: activeChain,
+      transport: http(activeChain.rpcUrls.default.http[0]),
     })
-  }, [])
+  }, [activeChain])
 
   // Create options reader
   const reader = useMemo(() => {
@@ -130,10 +151,11 @@ export function useWallet() {
         method: 'eth_chainId',
       })
       const chainId = parseInt(hexChainId, 16)
+      const chain = chainId === 296 ? hederaTestnet : anvilLocalhost
 
       const walletClient = createWalletClient({
         account,
-        chain: anvilLocalhost,
+        chain,
         transport: custom(window.ethereum),
       })
 
@@ -186,6 +208,71 @@ export function useWallet() {
     })
   }, [publicClient, reader])
 
+  const switchNetwork = useCallback(async (targetChainId: number) => {
+    if (typeof window === 'undefined' || !window.ethereum) return
+
+    const hexChainId = `0x${targetChainId.toString(16)}`
+    const targetChain = targetChainId === 296 ? hederaTestnet : anvilLocalhost
+
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: hexChainId }],
+      })
+    } catch (switchError: any) {
+      // Error 4902 indicates that the chain has not been added to MetaMask
+      if (switchError.code === 4902 || switchError?.data?.originalError?.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: hexChainId,
+                chainName: targetChain.name,
+                rpcUrls: targetChain.rpcUrls.default.http,
+                nativeCurrency: targetChain.nativeCurrency,
+                blockExplorerUrls: targetChain.blockExplorers?.default?.url
+                  ? [targetChain.blockExplorers.default.url]
+                  : undefined,
+              },
+            ],
+          })
+        } catch (addError) {
+          console.error('Failed to add chain to wallet:', addError)
+        }
+      } else {
+        console.error('Failed to switch network:', switchError)
+      }
+    }
+  }, [])
+
+  // 1-Click Faucet execution: Mints $100 Mock USDC directly on-chain
+  const claimMockUsdc = useCallback(
+    async (amount: bigint = 100_000_000n) => {
+      if (!state.walletClient || !state.address || !reader) {
+        throw new Error('Wallet not connected')
+      }
+
+      const mockUsdcAddress = reader.addresses.mockUsdc
+      const hash = await state.walletClient.writeContract({
+        address: mockUsdcAddress,
+        abi: mockUsdcAbi,
+        functionName: 'mint',
+        args: [state.address, amount],
+        chain: activeChain,
+        account: state.address,
+      } as any)
+
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash })
+      }
+
+      await refreshUserData(state.address, reader)
+      return hash
+    },
+    [state.walletClient, state.address, reader, activeChain, publicClient, refreshUserData]
+  )
+
   // Setup event listeners for account/chain changes
   useEffect(() => {
     if (typeof window === 'undefined' || !window.ethereum) return
@@ -203,7 +290,11 @@ export function useWallet() {
     }
 
     const handleChainChanged = (hexChainId: string) => {
-      setState((prev) => ({ ...prev, chainId: parseInt(hexChainId, 16) }))
+      const nextChainId = parseInt(hexChainId, 16)
+      setState((prev) => ({ ...prev, chainId: nextChainId }))
+      if (state.address && reader) {
+        refreshUserData(state.address, reader)
+      }
     }
 
     window.ethereum.on?.('accountsChanged', handleAccountsChanged)
@@ -213,12 +304,16 @@ export function useWallet() {
       window.ethereum.removeListener?.('accountsChanged', handleAccountsChanged)
       window.ethereum.removeListener?.('chainChanged', handleChainChanged)
     }
-  }, [disconnect, reader, refreshUserData])
+  }, [disconnect, reader, refreshUserData, state.address])
 
   return {
     ...state,
+    activeChain,
+    isHedera: state.chainId === 296,
     connect,
     disconnect,
+    switchNetwork,
+    claimMockUsdc,
     refreshUserData: () => {
       if (state.address && reader) {
         refreshUserData(state.address, reader)

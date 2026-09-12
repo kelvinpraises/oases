@@ -6,6 +6,7 @@ import {
   Stack,
   Coins,
   Lightning,
+  Plus,
 } from '@phosphor-icons/react'
 import { TerminalShell } from '@/components/template/terminal-shell'
 import { StatusPill } from '@/components/molecules/status-pill'
@@ -17,6 +18,8 @@ import { TicketAuditor } from '@/components/organisms/ticket-auditor'
 import { ClaimModal } from '@/components/organisms/claim-modal'
 import { ContagionArc } from '@/components/organisms/contagion-arc'
 import { HurricaneCone } from '@/components/organisms/hurricane-cone'
+import { PitchDrawer } from '@/components/organisms/pitch-drawer'
+import { PitchFeed } from '@/components/organisms/pitch-feed'
 import { useTensionCast } from '@/hooks/use-tension-casts'
 import { formatBlockNumber } from '@/utils/format-currency'
 
@@ -29,6 +32,7 @@ function TensionCastDetailPage() {
   const { tensionCast } = useTensionCast(id)
 
   const [selectedVaultId, setSelectedVaultId] = useState<string | null>(null)
+  const [isPitchDrawerOpen, setIsPitchDrawerOpen] = useState<boolean>(false)
 
   if (!tensionCast) {
     return (
@@ -145,12 +149,25 @@ function TensionCastDetailPage() {
 
             {/* 3. Streaming Configuration */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Lightning className="w-4 h-4 text-amber-600" weight="fill" />
-                <h3 className="font-display font-semibold text-sm text-neutral-900">
-                  Streaming Target: {activeVault.characterName} — {activeVault.question}
-                </h3>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Lightning className="w-4 h-4 text-amber-600" weight="fill" />
+                  <h3 className="font-display font-semibold text-sm text-neutral-900">
+                    Streaming Target: {activeVault.characterName} — {activeVault.question}
+                  </h3>
+                </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setIsPitchDrawerOpen(true)}
+                  className="bg-neutral-900 hover:bg-neutral-800 text-white font-mono text-xs gap-1.5 h-8 font-semibold shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" weight="bold" />
+                  Pitch Anomaly ($5.00 USDC)
+                </Button>
               </div>
+
               <StreamForm
                 vault={activeVault}
                 marketId={tensionCast.marketId}
@@ -162,6 +179,14 @@ function TensionCastDetailPage() {
           </div>
         )}
 
+        {/* Live Pitch Activity Feed Ticker */}
+        <div className="space-y-3">
+          <PitchFeed
+            characterIdFilter={activeVault?.characterId}
+            limit={5}
+          />
+        </div>
+
         {/* Live Detective Thought Journal Section */}
         <div className="space-y-3">
           <JournalFeed
@@ -170,6 +195,13 @@ function TensionCastDetailPage() {
           />
         </div>
       </div>
+
+      {/* Anomaly Pitch Drawer */}
+      <PitchDrawer
+        isOpen={isPitchDrawerOpen}
+        onClose={() => setIsPitchDrawerOpen(false)}
+        defaultCharacterId={activeVault?.characterId}
+      />
     </TerminalShell>
   )
 }
