@@ -14,6 +14,7 @@ import { StatusPill } from '@/components/molecules/status-pill'
 import { Button } from '@/components/atoms/button'
 import { useCharacter } from '@/hooks/use-characters'
 import { useTensionCasts } from '@/hooks/use-tension-casts'
+import { HurricaneCone } from '@/components/organisms/hurricane-cone'
 
 export const Route = createFileRoute('/character/$id')({
   component: CharacterDetailPage,
@@ -119,6 +120,9 @@ function CharacterDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Hurricane Forecast Cone Visualizer */}
+        <HurricaneCone character={character} />
 
         {/* Live Telemetry Signal Visualizer */}
         <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm space-y-4">

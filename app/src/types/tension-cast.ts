@@ -20,6 +20,9 @@ export interface ChildVault {
   yesShares?: number
   noShares?: number
   resolvedOutcome?: number
+  solverConfig?: string
+  injectedYieldUSDC?: number
+  queryCount?: number
 }
 
 export interface TensionCast {

@@ -4,6 +4,79 @@ import { useWalletContext } from '@/providers/wallet-provider'
 import { rawToUsdc, sharesToNumber } from '@oases/options'
 import type { Hex } from 'viem'
 
+// Safe helper for SSR and client base64 encoding
+const safeBtoa = (str: string): string => {
+  if (typeof window !== 'undefined' && window.btoa) {
+    return window.btoa(str)
+  }
+  return Buffer.from(str, 'utf-8').toString('base64')
+}
+
+const WHALE_SOLVER_CONFIG = safeBtoa(
+  JSON.stringify({
+    version: '1.0.0',
+    query: `query VerifyWhaleHealth($blockNumber: Int!) {
+  account(id: "actor-whale-0x7a", block: { number: $blockNumber }) {
+    healthFactor
+    totalCollateralUSD
+    totalDebtUSD
+  }
+}`,
+    timeBounds: { startBlock: 20000000, deadlineBlock: 20000300 },
+    globals: {
+      healthFactor: 'data.account.healthFactor',
+      collateral: 'data.account.totalCollateralUSD',
+      debt: 'data.account.totalDebtUSD',
+    },
+    tree: [
+      { type: 'expr', id: 'step_ratio', formula: 'collateral / debt', output: 'collateralRatio' },
+      { type: 'expr', id: 'step_breach_check', formula: 'healthFactor <= 1.00', output: 'isBreached' },
+    ],
+    resolution: { triggerVariable: 'isBreached', debounceBlocks: 2 },
+  })
+)
+
+const RESERVE_SOLVER_CONFIG = safeBtoa(
+  JSON.stringify({
+    version: '1.0.0',
+    query: `query VerifyReservePool($blockNumber: Int!) {
+  market(id: "place-aave-v3-core", block: { number: $blockNumber }) {
+    totalValueLockedUSD
+    totalBorrowBalanceUSD
+  }
+}`,
+    timeBounds: { startBlock: 20000000, deadlineBlock: 20000300 },
+    globals: {
+      tvl: 'data.market.totalValueLockedUSD',
+      borrowed: 'data.market.totalBorrowBalanceUSD',
+    },
+    tree: [
+      { type: 'expr', id: 'step_utilization', formula: 'borrowed / tvl', output: 'utilizationRate' },
+      { type: 'expr', id: 'step_breach_check', formula: 'utilizationRate >= 0.95', output: 'isBreached' },
+    ],
+    resolution: { triggerVariable: 'isBreached', debounceBlocks: 2 },
+  })
+)
+
+const DEBT_SOLVER_CONFIG = safeBtoa(
+  JSON.stringify({
+    version: '1.0.0',
+    query: `query VerifyWhaleDebt($blockNumber: Int!) {
+  account(id: "actor-whale-0x7a", block: { number: $blockNumber }) {
+    totalDebtUSD
+  }
+}`,
+    timeBounds: { startBlock: 20000000, deadlineBlock: 20000300 },
+    globals: {
+      debt: 'data.account.totalDebtUSD',
+    },
+    tree: [
+      { type: 'expr', id: 'step_breach_check', formula: 'debt >= 15000000', output: 'isBreached' },
+    ],
+    resolution: { triggerVariable: 'isBreached', debounceBlocks: 2 },
+  })
+)
+
 export const PROTOCOL_TENSION_CASTS: TensionCast[] = [
   {
     id: 'tc-aave-crv-cascade',
@@ -24,10 +97,13 @@ export const PROTOCOL_TENSION_CASTS: TensionCast[] = [
         classType: 'Actor',
         question: 'Will Whale 0x7a health factor breach 1.0 (Liquidation Trigger)?',
         metricTarget: 'healthFactor <= 1.00',
+        solverConfig: WHALE_SOLVER_CONFIG,
         status: 'STREAMING',
         seedPotUSDC: 20,
         totalStreamedUSDC: 1245.5,
         currentPriceP0: 0.1,
+        injectedYieldUSDC: 42.5,
+        queryCount: 850,
         yesPoolUSDC: 632.75,
         noPoolUSDC: 632.75,
         yesShares: 6327.5,
@@ -41,10 +117,13 @@ export const PROTOCOL_TENSION_CASTS: TensionCast[] = [
         classType: 'Place',
         question: 'Will Aave v3 Core USDC utilization breach 95.0%?',
         metricTarget: 'utilizationRate >= 0.95',
+        solverConfig: RESERVE_SOLVER_CONFIG,
         status: 'STREAMING',
         seedPotUSDC: 20,
         totalStreamedUSDC: 890.0,
         currentPriceP0: 0.1,
+        injectedYieldUSDC: 28.0,
+        queryCount: 560,
         yesPoolUSDC: 455.0,
         noPoolUSDC: 455.0,
         yesShares: 4550.0,
@@ -58,10 +137,13 @@ export const PROTOCOL_TENSION_CASTS: TensionCast[] = [
         classType: 'Bond',
         question: 'Will 0x7a total USDC debt coupling breach $15.0M?',
         metricTarget: 'totalBorrowBalanceUSD >= 15000000',
+        solverConfig: DEBT_SOLVER_CONFIG,
         status: 'STREAMING',
         seedPotUSDC: 20,
         totalStreamedUSDC: 640.25,
         currentPriceP0: 0.1,
+        injectedYieldUSDC: 19.5,
+        queryCount: 390,
         yesPoolUSDC: 330.12,
         noPoolUSDC: 330.13,
         yesShares: 3301.2,
@@ -145,6 +227,7 @@ export function useTensionCasts() {
                     const noShares = sharesToNumber(vaultData.noShares)
                     return {
                       ...cv,
+                      solverConfig: vaultData.solverConfig || cv.solverConfig,
                       yesPoolUSDC: yesPool,
                       noPoolUSDC: noPool,
                       yesShares,

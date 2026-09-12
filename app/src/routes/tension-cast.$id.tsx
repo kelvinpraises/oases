@@ -5,18 +5,20 @@ import {
   Clock,
   Stack,
   Coins,
-  Info,
-  CheckCircle,
   Lightning,
 } from '@phosphor-icons/react'
 import { TerminalShell } from '@/components/template/terminal-shell'
 import { StatusPill } from '@/components/molecules/status-pill'
-import { ClassBadge } from '@/components/molecules/class-badge'
 import { Button } from '@/components/atoms/button'
 import { StreamForm } from '@/components/organisms/stream-form'
 import { JournalFeed } from '@/components/organisms/journal-feed'
+import { YieldHUD } from '@/components/organisms/yield-hud'
+import { TicketAuditor } from '@/components/organisms/ticket-auditor'
+import { ClaimModal } from '@/components/organisms/claim-modal'
+import { ContagionArc } from '@/components/organisms/contagion-arc'
+import { HurricaneCone } from '@/components/organisms/hurricane-cone'
 import { useTensionCast } from '@/hooks/use-tension-casts'
-import { formatBlockNumber, formatUSDC } from '@/utils/format-currency'
+import { formatBlockNumber } from '@/utils/format-currency'
 
 export const Route = createFileRoute('/tension-cast/$id')({
   component: TensionCastDetailPage,
@@ -117,100 +119,46 @@ function TensionCastDetailPage() {
           </div>
         </div>
 
-        {/* Child Conviction Vaults Cluster Grid */}
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-semibold font-display text-neutral-900">
-                Select Child Conviction Vault ({tensionCast.childVaults.length})
-              </h2>
-              <p className="text-xs text-neutral-500">
-                Click any vault to direct your continuous capital stream into its bonding curve.
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs font-mono text-neutral-600 bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200">
-              <Info className="w-3.5 h-3.5 text-neutral-500" />
-              <span>Base Price P₀ = $0.100 USDC</span>
-            </div>
-          </div>
+        {/* Systemic Contagion Arc Cluster Visualizer */}
+        <ContagionArc
+          tensionCast={tensionCast}
+          selectedVaultId={activeVault?.id}
+          onSelectVault={(vId) => setSelectedVaultId(vId)}
+        />
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {tensionCast.childVaults.map((vault) => {
-              const isSelected = vault.id === activeVault?.id
-              return (
-                <div
-                  key={vault.id}
-                  onClick={() => setSelectedVaultId(vault.id)}
-                  className={`group cursor-pointer rounded-xl border p-4 transition-all ${
-                    isSelected
-                      ? 'border-neutral-900 bg-neutral-50/70 shadow-md ring-1 ring-neutral-900'
-                      : 'border-neutral-200 bg-white hover:border-neutral-400 hover:shadow-xs'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <ClassBadge classType={vault.classType} />
-                    <div className="flex items-center gap-1.5">
-                      {isSelected && (
-                        <span className="flex items-center gap-1 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-mono text-white font-medium">
-                          <CheckCircle className="w-3 h-3 text-emerald-400" weight="fill" />
-                          SELECTED
-                        </span>
-                      )}
-                      <StatusPill status={vault.status} />
-                    </div>
-                  </div>
-
-                  <Link
-                    to="/character/$id"
-                    params={{ id: vault.characterId }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-xs font-mono text-neutral-500 hover:text-neutral-900 transition-colors"
-                  >
-                    Target: {vault.characterName}
-                  </Link>
-
-                  <h3 className="text-sm font-semibold text-neutral-900 font-display mt-1 leading-snug">
-                    {vault.question}
-                  </h3>
-
-                  <div className="mt-3 rounded-md bg-white border border-neutral-200 p-2 font-mono text-[11px] space-y-0.5">
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">
-                      Breach Invariant Gate
-                    </span>
-                    <span className="font-semibold text-neutral-800">
-                      {vault.metricTarget}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-mono pt-1 border-t border-neutral-100">
-                    <div>
-                      <span className="text-neutral-400 text-[10px]">Nominal Seed</span>
-                      <p className="font-medium text-neutral-900">{formatUSDC(vault.seedPotUSDC)}</p>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 text-[10px]">Total Streamed</span>
-                      <p className="font-semibold text-emerald-700">{formatUSDC(vault.totalStreamedUSDC)}</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Selected Child Vault Stream Form Section */}
+        {/* Selected Child Vault Section */}
         {activeVault && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Lightning className="w-4 h-4 text-amber-600" weight="fill" />
-              <h3 className="font-display font-semibold text-sm text-neutral-900">
-                Streaming Target: {activeVault.characterName} — {activeVault.question}
-              </h3>
-            </div>
-            <StreamForm
+          <div className="space-y-6">
+            {/* 1. Hurricane Forecast Cone & Trajectory Geometry */}
+            <HurricaneCone
               vault={activeVault}
-              marketId={tensionCast.marketId}
+              currentBlock={tensionCast.currentBlock}
+              startBlock={tensionCast.startBlock}
+              deadlineBlock={tensionCast.deadlineBlock}
             />
+
+            {/* 2. Positive-Sum Yield HUD */}
+            <YieldHUD vault={activeVault} />
+
+            {/* 3. Settlement & Claim Station */}
+            <ClaimModal vault={activeVault} tensionCast={tensionCast} />
+
+            {/* 3. Streaming Configuration */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Lightning className="w-4 h-4 text-amber-600" weight="fill" />
+                <h3 className="font-display font-semibold text-sm text-neutral-900">
+                  Streaming Target: {activeVault.characterName} — {activeVault.question}
+                </h3>
+              </div>
+              <StreamForm
+                vault={activeVault}
+                marketId={tensionCast.marketId}
+              />
+            </div>
+
+            {/* 4. Replay Ticket Auditor & Proof Inspector */}
+            <TicketAuditor vault={activeVault} />
           </div>
         )}
 
