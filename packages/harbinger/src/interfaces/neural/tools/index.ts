@@ -24,20 +24,39 @@ export * from "./observation/index";
 export * from "./resolution/index";
 export * from "./faucet/index";
 
+export function wrapMastraTool<T extends { id?: string; description?: string; execute?: (...args: any[]) => Promise<any> }>(
+  tool: T
+): T & { execute: (inputData?: any, context?: any) => Promise<any> } {
+  const origExec = tool.execute?.bind(tool);
+  const wrapped = {
+    ...tool,
+    execute: async (inputData?: any, context?: any) => {
+      if (!origExec) return undefined;
+      const res = await origExec(inputData, context);
+      if (res && typeof res === "object" && "error" in res && (res as any).error) {
+        throw new Error((res as any).message);
+      }
+      return res;
+    },
+  };
+  return wrapped as any;
+}
+
 export function createNeuralTools(services: {
   journalService: JournalService;
   loopService: LoopService;
   graphClient: GraphClient;
 }) {
   return {
-    logThought: createLogThoughtTool(services.journalService),
-    updateCadence: createUpdateCadenceTool(services.loopService),
-    spawnJob: createSpawnJobTool(services.loopService),
-    killJob: createKillJobTool(services.loopService),
-    listJobs: createListJobsTool(services.loopService),
-    querySubgraph: createQuerySubgraphTool(services.graphClient),
-    evaluateMetric: createEvaluateMetricTool(services.graphClient),
-    checkPrecedence: createCheckPrecedenceTool(),
-    dryRunTicket: createCreateTicketTool(),
+    logThought: wrapMastraTool(createLogThoughtTool(services.journalService)),
+    updateCadence: wrapMastraTool(createUpdateCadenceTool(services.loopService)),
+    spawnJob: wrapMastraTool(createSpawnJobTool(services.loopService)),
+    killJob: wrapMastraTool(createKillJobTool(services.loopService)),
+    listJobs: wrapMastraTool(createListJobsTool(services.loopService)),
+    querySubgraph: wrapMastraTool(createQuerySubgraphTool(services.graphClient)),
+    evaluateMetric: wrapMastraTool(createEvaluateMetricTool(services.graphClient)),
+    checkPrecedence: wrapMastraTool(createCheckPrecedenceTool()),
+    dryRunTicket: wrapMastraTool(createCreateTicketTool()),
   };
 }
+

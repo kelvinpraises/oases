@@ -14,10 +14,10 @@ import {
   type Address,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import type { HarbingerConfig } from "@/config";
-import type { ReplayTicket } from "@/models/ReplayTicket";
-import { verifyReplayTicket } from "@/services/oracle/attestation-service";
-import type { JournalService } from "@/services/journal/journal-service";
+import type { HarbingerConfig } from "../../config";
+import type { ReplayTicket } from "../../models/ReplayTicket";
+import { verifyReplayTicket } from "../oracle/attestation-service";
+import type { JournalService } from "../journal/journal-service";
 import {
   type SettlementOutcome,
   type SettlementResult,
@@ -31,6 +31,12 @@ export const VAULT_ABI = parseAbi([
   "function resolve(bytes32 vaultId, uint8 outcome) external",
   "function injectMarketYield(bytes32 marketId, uint256 amount) external",
   "function vaults(bytes32 vaultId) external view returns (bytes32 id, bytes32 marketId, string question, string solverConfig, address creator, uint8 status, uint8 outcome, uint32 resolvedAt, bool exists)",
+  "function usdc() external view returns (address)",
+]);
+
+export const ERC20_ABI = parseAbi([
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
 ]);
 
 export const MIN_GAS_BUFFER_WEI = 5_000_000_000_000_000n; // 0.005 ETH
@@ -321,6 +327,43 @@ export class ChainClientService {
 
       await this.assertSufficientGasBalance();
       const formattedMarketId = formatBytes32(marketId);
+
+      // Verify and ensure sufficient ERC-20 USDC allowance for targetVault
+      try {
+        let usdcAddress: Address | undefined;
+        try {
+          usdcAddress = await this.publicClient.readContract({
+            address: targetVault,
+            abi: VAULT_ABI,
+            functionName: "usdc",
+          });
+        } catch {
+          usdcAddress = (process.env.MOCK_USDC_ADDRESS ?? "0x5d33e40f2285dbe357e2d9ed51e89d070b89bcab") as Address;
+        }
+
+        if (usdcAddress) {
+          const allowance = await this.publicClient.readContract({
+            address: usdcAddress,
+            abi: ERC20_ABI,
+            functionName: "allowance",
+            args: [this.account.address, targetVault],
+          });
+
+          if (allowance < amount) {
+            const approveTx = await this.walletClient.writeContract({
+              account: this.account,
+              address: usdcAddress,
+              abi: ERC20_ABI,
+              functionName: "approve",
+              args: [targetVault, 2n ** 256n - 1n],
+              chain: null,
+            });
+            await this.publicClient.waitForTransactionReceipt({ hash: approveTx });
+          }
+        }
+      } catch {
+        // Safe proceed if running against mock client without ERC20 contract deployed
+      }
 
       const txHash = await this.walletClient.writeContract({
         account: this.account,

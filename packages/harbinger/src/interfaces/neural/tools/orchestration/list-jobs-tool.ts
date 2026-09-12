@@ -1,14 +1,15 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import type { LoopService } from "../../../../services/loop/loop-service";
 
 export const ListJobsInputSchema = z.object({}).optional();
 
 export function createListJobsTool(loopService: LoopService) {
-  return {
+  return createTool({
     id: "listJobs",
     description: "Lists all active monitoring jobs currently registered in the SQLite active_jobs table.",
     inputSchema: z.object({}).optional(),
-    execute: async (_input?: Record<string, unknown>) => {
+    execute: async (_args?: any) => {
       const jobs = await loopService.listJobs();
       return {
         success: true,
@@ -23,5 +24,5 @@ export function createListJobsTool(loopService: LoopService) {
         })),
       };
     },
-  };
+  });
 }

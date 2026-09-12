@@ -1,3 +1,4 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { FaucetService, faucetService as defaultFaucetService } from "../../../../services/faucet/faucet-service";
 import type { Address } from "viem";
@@ -12,11 +13,12 @@ export const RequestFaucetFundsInputSchema = z.object({
 export type RequestFaucetFundsInput = z.infer<typeof RequestFaucetFundsInputSchema>;
 
 export function createRequestFaucetFundsTool(faucet: FaucetService = defaultFaucetService) {
-  return {
+  const tool = createTool({
     id: "requestFaucetFunds",
     description: "Requests Mock USDC seeding capital ($20) or native testnet gas (HBAR) from the dual-rail Faucet service to fund the agent's EOA.",
     inputSchema: RequestFaucetFundsInputSchema,
-    execute: async (input: RequestFaucetFundsInput) => {
+    execute: async (args: any) => {
+      const input = (args && typeof args === "object" && "context" in args && args.context) ? args.context : args;
       const validated = RequestFaucetFundsInputSchema.parse(input);
       const usdcRaw = BigInt(Math.round(validated.usdcAmount * 1e6));
 
@@ -34,5 +36,19 @@ export function createRequestFaucetFundsTool(faucet: FaucetService = defaultFauc
         purpose: validated.purpose,
       };
     },
+  });
+
+  const origExec = tool.execute?.bind(tool);
+  const wrapped = {
+    ...tool,
+    execute: async (inputData?: any, context?: any) => {
+      if (!origExec) return undefined;
+      const res = await origExec(inputData, context);
+      if (res && typeof res === "object" && "error" in res && (res as any).error) {
+        throw new Error((res as any).message);
+      }
+      return res;
+    },
   };
+  return wrapped as typeof tool & { execute: (inputData?: any, context?: any) => Promise<any> };
 }

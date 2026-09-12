@@ -81,5 +81,11 @@ function initSchema(sqlite: Database.Database): void {
       block_height TEXT NOT NULL,
       status TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS processed_hcs_pitches (
+      payer_tx_id TEXT PRIMARY KEY,
+      consensus_timestamp TEXT NOT NULL,
+      processed_at INTEGER NOT NULL
+    );
   `);
 }

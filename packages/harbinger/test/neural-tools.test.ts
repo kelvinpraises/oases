@@ -241,7 +241,7 @@ describe("Neural Zod Tools & Authorization Security Gate", () => {
       // List
       const listRes = await tools.listJobs.execute({});
       assert.ok(listRes.count >= 1);
-      assert.ok(listRes.jobs.some((j) => j.id === "job-via-tool"));
+      assert.ok(listRes.jobs.some((j: any) => j.id === "job-via-tool"));
 
       // Kill
       const killRes = await tools.killJob.execute({ jobId: "job-via-tool" });

@@ -1,4 +1,5 @@
-import { loadNeuralConfig, type NeuralConfig } from "../config";
+import { Agent } from "@mastra/core/agent";
+import { loadNeuralConfig, resolveLanguageModel, type NeuralConfig } from "../config";
 
 export class HarbingerConfigurationError extends Error {
   constructor(message: string) {
@@ -18,14 +19,31 @@ export type InferenceRunner = (
   abortSignal?: AbortSignal,
 ) => Promise<AgentDecision>;
 
+export const DETECTIVE_INSTRUCTIONS = `
+You are the Contagion Sentinel Detective Agent for Oases Protocol.
+Your mission is to investigate decentralized finance contagion risks, collateral liquidity shocks, and protocol anomalies across open Tension Casts.
+
+How to work an investigation cycle:
+1. Assess market risk using the observation tools:
+   - querySubgraph: inspect on-chain state pinned at target block numbers.
+   - evaluateMetric: evaluate formal dynamic AST solver invariants (e.g. Health Factor, LTV).
+2. If contagion velocity increases or thresholds are breached:
+   - updateCadence: tighten monitoring loop cadence down towards 2,000ms.
+   - logThought: record structured analytical observations to the Detective Journal.
+3. If seeding or operational capital is required:
+   - requestFaucetFunds: autonomously request gas or seeding capital ($20 USDC).
+4. Axiom 4.1 Invariant: Do NOT attempt to settle vaults directly. Settlement is strictly air-gapped and triggered exclusively by the deterministic reflex engine upon 2-block confirmation debounce.
+`;
+
 export class DetectiveAgent {
   public readonly config: NeuralConfig;
+  private mastraAgent?: Agent;
 
   constructor(
     public readonly name = "detectiveAgent",
     public readonly description = "Presiding AI detective agent reasoning over Tension Cast contagion clusters",
     private customInference?: InferenceRunner,
-    public readonly tools: Record<string, unknown> = {},
+    public readonly tools: Record<string, any> = {},
     config?: NeuralConfig,
   ) {
     this.config = config ?? loadNeuralConfig();
@@ -43,52 +61,72 @@ export class DetectiveAgent {
       throw new Error("Analysis aborted by operator");
     }
 
+    // 1. Offline Deterministic Path (Preserved for CI and Unit Tests)
     if (this.customInference) {
       return await this.customInference(prompt, abortSignal);
     }
 
+    // 2. Fail-Fast Configuration Guard
     if (!this.config.apiKey) {
       throw new HarbingerConfigurationError(
         "HarbingerConfigurationError: HARBINGER_MODEL_API_KEY or OPENAI_API_KEY is required to run the AI Detective Agent. Refusing to operate with silent dummy fallback.",
       );
     }
 
-    // When apiKey is present, execute model inference without swallowing errors
+    // 3. Authentic Multi-Step Mastra Agent Execution
     return await this.runLiveInference(prompt, abortSignal);
   }
 
   private async runLiveInference(prompt: string, abortSignal?: AbortSignal): Promise<AgentDecision> {
-    const apiKey = this.config.apiKey;
-    const baseUrl = this.config.apiBaseUrl ?? "https://api.openai.com/v1";
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.config.modelName,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: this.config.maxTokens,
-      }),
-      signal: abortSignal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`LLM provider call failed with HTTP ${response.status}: ${await response.text()}`);
+    if (!this.mastraAgent) {
+      const model = resolveLanguageModel(this.config);
+      this.mastraAgent = new Agent({
+        id: "harbinger-detective-agent",
+        name: this.name,
+        description: this.description,
+        instructions: DETECTIVE_INSTRUCTIONS,
+        model,
+        tools: this.tools,
+      });
     }
 
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content?.trim();
+    // Domain C, Master Ruling 4: 10s LLM Timeout Circuit Breaker
+    const timeoutSignal = AbortSignal.timeout(10_000);
+    const effectiveSignal = abortSignal
+      ? AbortSignal.any([abortSignal, timeoutSignal])
+      : timeoutSignal;
+
+    const result = await this.mastraAgent.generate(prompt, {
+      maxSteps: 5,
+      abortSignal: effectiveSignal,
+    });
+
+    const thought = result.text?.trim();
+    if (!thought) {
+      throw new Error("Model returned empty analysis content.");
+    }
+
+    // Dynamically extract real tool calls executed from Mastra execution steps
+    const toolCallsExecuted: string[] = [];
+    if (result.steps) {
+      for (const step of result.steps) {
+        if (step.toolCalls) {
+          for (const tc of step.toolCalls) {
+            const name = (tc as any).toolName ?? (tc as any).name;
+            if (name && !toolCallsExecuted.includes(name)) {
+              toolCallsExecuted.push(name);
+            }
+          }
+        }
+      }
+    }
 
     return {
-      thought: content || "Completed contagion investigation.",
-      cadenceAdjusted: false,
-      toolCallsExecuted: ["evaluateMetric"],
+      thought,
+      cadenceAdjusted: toolCallsExecuted.includes("updateCadence"),
+      toolCallsExecuted,
     };
   }
 }
 
 export const detectiveAgent = new DetectiveAgent();
-

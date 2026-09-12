@@ -1,3 +1,4 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import type { JournalService } from "../../../../services/journal/journal-service";
 
@@ -11,11 +12,12 @@ export const LogThoughtInputSchema = z.object({
 export type LogThoughtInput = z.infer<typeof LogThoughtInputSchema>;
 
 export function createLogThoughtTool(journalService: JournalService) {
-  return {
+  return createTool({
     id: "logThought",
     description: "Logs a qualitative detective hypothesis or risk analysis to the Detective Thought Journal.",
     inputSchema: LogThoughtInputSchema,
-    execute: async (input: LogThoughtInput) => {
+    execute: async (args: any) => {
+      const input = (args && typeof args === "object" && "context" in args && args.context) ? args.context : args;
       const validated = LogThoughtInputSchema.parse(input);
       const entry = await journalService.recordThought({
         level: validated.level,
@@ -27,5 +29,5 @@ export function createLogThoughtTool(journalService: JournalService) {
       });
       return { success: true, entryId: entry.id };
     },
-  };
+  });
 }

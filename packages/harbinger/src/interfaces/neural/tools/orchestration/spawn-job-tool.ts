@@ -1,3 +1,4 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import type { LoopService } from "../../../../services/loop/loop-service";
 import type { Job } from "../../../../models/Job";
@@ -13,11 +14,12 @@ export const SpawnJobInputSchema = z.object({
 export type SpawnJobInput = z.infer<typeof SpawnJobInputSchema>;
 
 export function createSpawnJobTool(loopService: LoopService) {
-  return {
+  return createTool({
     id: "spawnJob",
     description: "Spawns a new active monitoring loop for a child vault in SQLite and mounts it to the scheduler.",
     inputSchema: SpawnJobInputSchema,
-    execute: async (input: SpawnJobInput) => {
+    execute: async (args: any) => {
+      const input = (args && typeof args === "object" && "context" in args && args.context) ? args.context : args;
       const validated = SpawnJobInputSchema.parse(input);
       const job: Job = {
         id: validated.id,
@@ -35,5 +37,5 @@ export function createSpawnJobTool(loopService: LoopService) {
       );
       return { success: true, job: spawned };
     },
-  };
+  });
 }

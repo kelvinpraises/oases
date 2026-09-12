@@ -1,3 +1,4 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import type { LoopService } from "../../../../services/loop/loop-service";
 
@@ -16,11 +17,12 @@ export const UpdateCadenceInputSchema = z.object({
 export type UpdateCadenceInput = z.infer<typeof UpdateCadenceInputSchema>;
 
 export function createUpdateCadenceTool(loopService: LoopService) {
-  return {
+  return createTool({
     id: "updateCadence",
     description: "Adjusts the monitoring cadence of an active child vault job (bounded between 1,000ms and 60,000ms).",
     inputSchema: UpdateCadenceInputSchema,
-    execute: async (input: UpdateCadenceInput) => {
+    execute: async (args: any) => {
+      const input = (args && typeof args === "object" && "context" in args && args.context) ? args.context : args;
       const validated = UpdateCadenceInputSchema.parse(input);
       await loopService.updateCadence(
         validated.jobId,
@@ -35,5 +37,5 @@ export function createUpdateCadenceTool(loopService: LoopService) {
         reason: validated.reason,
       };
     },
-  };
+  });
 }

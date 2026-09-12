@@ -32,13 +32,22 @@ export function loadAgentManifest(filePath?: string): AgentManifest {
     resolve(process.cwd(), "oases-agents.json");
 
   if (!existsSync(targetPath)) {
-    const parentPath = resolve(process.cwd(), "..", "oases-agents.json");
-    const grandParentPath = resolve(process.cwd(), "../..", "oases-agents.json");
-    if (existsSync(parentPath)) {
-      targetPath = parentPath;
-    } else if (existsSync(grandParentPath)) {
-      targetPath = grandParentPath;
-    } else {
+    // Walk up directory tree to find root oases-agents.json
+    let currentDir = process.cwd();
+    let found = false;
+    for (let i = 0; i < 5; i++) {
+      const candidate = resolve(currentDir, "oases-agents.json");
+      if (existsSync(candidate)) {
+        targetPath = candidate;
+        found = true;
+        break;
+      }
+      const parent = resolve(currentDir, "..");
+      if (parent === currentDir) break;
+      currentDir = parent;
+    }
+
+    if (!found) {
       throw new Error(
         `AgentManifestNotFound: Could not find agent manifest at "${targetPath}". Ensure oases-agents.json exists at root.`,
       );

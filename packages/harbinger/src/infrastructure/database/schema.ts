@@ -31,10 +31,57 @@ export interface HealthSnapshotTable {
   status: string;
 }
 
+export interface ProcessedHcsPitchTable {
+  payer_tx_id: string;
+  consensus_timestamp: string;
+  processed_at: number;
+}
+
 export interface HarbingerDB {
   active_jobs: ActiveJobTable;
   journal_entries: JournalEntryTable;
   health_snapshots: HealthSnapshotTable;
+  processed_hcs_pitches: ProcessedHcsPitchTable;
+}
+
+export async function recordProcessedHcsPitch(
+  db: Kysely<HarbingerDB>,
+  payerTxId: string,
+  consensusTimestamp: string,
+): Promise<void> {
+  await db
+    .insertInto("processed_hcs_pitches")
+    .values({
+      payer_tx_id: payerTxId,
+      consensus_timestamp: consensusTimestamp,
+      processed_at: Date.now(),
+    })
+    .onConflict((oc) => oc.doNothing())
+    .execute();
+}
+
+export async function isHcsPitchProcessed(
+  db: Kysely<HarbingerDB>,
+  payerTxId: string,
+): Promise<boolean> {
+  const row = await db
+    .selectFrom("processed_hcs_pitches")
+    .select("payer_tx_id")
+    .where("payer_tx_id", "=", payerTxId)
+    .executeTakeFirst();
+  return !!row;
+}
+
+export async function getLatestProcessedHcsTimestamp(
+  db: Kysely<HarbingerDB>,
+): Promise<string | undefined> {
+  const row = await db
+    .selectFrom("processed_hcs_pitches")
+    .select("consensus_timestamp")
+    .orderBy("consensus_timestamp", "desc")
+    .limit(1)
+    .executeTakeFirst();
+  return row?.consensus_timestamp;
 }
 
 export async function insertJournalEntry(

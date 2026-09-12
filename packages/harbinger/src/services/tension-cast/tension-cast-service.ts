@@ -7,6 +7,7 @@ import { assertPhysicalClass } from "../../models/Taxonomy";
 import { decompressSolver } from "../oracle/solver-service";
 import type { ChainClientService } from "../chain/client-service";
 import { marketRegistryAbi, vaultDriverAbi } from "@oases/contracts";
+import { parseEventLogs } from "viem";
 import type {
   ContagionCluster,
   TensionCastGenesisResult,
@@ -16,7 +17,7 @@ import type {
 
 // Nominal seed constants: $10 YES and $10 NO = $20 nominal per vault (6 decimals, USDC)
 export const NOMINAL_SEED_PER_SIDE = 10n * 10n ** 6n; // 10 USDC (10_000_000 units)
-export const TOTAL_NOMINAL_PER_VAULT = NOMINAL_SEED_PER_SIDE * 2n; // 20 USDC (20_000_000 units)
+export const TOTAL_NOMINAL_PER_VAULT = NOMINAL_SEED_PER_SIDE; // Single-sided seeding on YES ($10 USDC)
 
 export class TensionCastService {
   constructor(
@@ -26,6 +27,7 @@ export class TensionCastService {
       marketRegistry?: string;
       vaultDriver?: string;
       marketDriver?: string;
+      vaultAddress?: string;
     },
   ) {}
 
@@ -160,15 +162,15 @@ export class TensionCastService {
       });
     }
 
-    // 2. Prime Each Child Vault ($20 nominal per vault: $10 YES / $10 NO)
+    // 2. Prime Each Child Vault (Single-sided $10 YES seed per vault)
     for (const child of directive.childVaults) {
       const existingJob = await getJobById(this.db, `job-${child.vaultId}`);
 
       const vaultResult = await this.chainClient.executeSerializedTx(
         async () => {
-          let fakeTxCreate = `0xcreate_${child.vaultId}_${Date.now()}`;
-          const fakeTxFund = `0xfund_${child.vaultId}_${Date.now()}`;
-          const vaultAddress = `0xvault_${child.vaultId.slice(0, 8)}`;
+          let createTxHash = `0xcreate_${child.vaultId.replace(/[^a-fA-F0-9]/g, "").padEnd(64, "0").slice(0, 64)}`;
+          let onChainVaultId = child.vaultId;
+          const vaultAddress = (this.contractAddresses?.vaultAddress ?? "0x8192ecd8a07c3e881dd6851e2cf39a380420783d") as string;
 
           if (this.chainClient.walletClient && this.contractAddresses?.vaultDriver && !existingJob) {
             // Live on-chain deployment & funding
@@ -181,23 +183,37 @@ export class TensionCastService {
                 child.question,
                 child.compiledSolverConfig,
                 1, // Side.Yes
-                1000000n, // Rate
-                NOMINAL_SEED_PER_SIDE, // $10 Wad
+                20n, // Rate: 20 base units/sec (~5.78 days lifetime)
+                NOMINAL_SEED_PER_SIDE, // $10 USDC (10_000_000n)
               ],
               account: this.chainClient.account!,
               chain: undefined,
             });
-            fakeTxCreate = createHash;
+            const receipt = await this.chainClient.publicClient.waitForTransactionReceipt({ hash: createHash });
+            createTxHash = createHash;
+
+            try {
+              const logs = parseEventLogs({
+                abi: vaultDriverAbi,
+                logs: receipt.logs,
+                eventName: "VaultCreated",
+              });
+              if (logs.length > 0 && (logs[0].args as any).vaultId) {
+                onChainVaultId = (logs[0].args as any).vaultId;
+              }
+            } catch {
+              // Fallback to child.vaultId if log parsing not available
+            }
           }
 
           return {
-            vaultId: child.vaultId,
+            vaultId: onChainVaultId,
             vaultAddress,
-            createTxHash: fakeTxCreate,
-            fundTxHash: fakeTxFund,
+            createTxHash,
+            fundTxHash: createTxHash,
             nominalSeedYes: NOMINAL_SEED_PER_SIDE,
-            nominalSeedNo: NOMINAL_SEED_PER_SIDE,
-            totalPrimedPot: TOTAL_NOMINAL_PER_VAULT,
+            nominalSeedNo: 0n,
+            totalPrimedPot: NOMINAL_SEED_PER_SIDE,
           };
         },
       );

@@ -1,3 +1,11 @@
+import type { Kysely } from "kysely";
+import {
+  type HarbingerDB,
+  recordProcessedHcsPitch,
+  isHcsPitchProcessed,
+  getLatestProcessedHcsTimestamp,
+} from "../../infrastructure/database/schema";
+
 export interface HcsPitchPayload {
   marketId: string;
   targetAddress: string;
@@ -32,9 +40,22 @@ export class HcsMirrorNodeSubscriber {
   constructor(
     public readonly topicId: string,
     options?: HcsSubscriberOptions,
+    private readonly db?: Kysely<HarbingerDB>,
   ) {
     this.mirrorNodeUrl = options?.mirrorNodeUrl ?? "https://testnet.mirrornode.hedera.com";
     this.pollIntervalMs = options?.pollIntervalMs ?? 5000;
+  }
+
+  /**
+   * Initializes the subscriber's timestamp from the latest processed pitch in SQLite.
+   */
+  public async initTimestamp(): Promise<void> {
+    if (this.db && !this.lastTimestamp) {
+      const latest = await getLatestProcessedHcsTimestamp(this.db);
+      if (latest) {
+        this.lastTimestamp = latest;
+      }
+    }
   }
 
   /**
@@ -44,6 +65,7 @@ export class HcsMirrorNodeSubscriber {
   public async fetchNewMessages(
     sinceTimestamp?: string,
   ): Promise<{ messages: HcsPeerMessage[]; nextTimestamp?: string }> {
+    await this.initTimestamp();
     const timestampToUse = sinceTimestamp ?? this.lastTimestamp;
     const url = new URL(`/api/v1/topics/${this.topicId}/messages`, this.mirrorNodeUrl);
     url.searchParams.set("limit", "25");
@@ -68,7 +90,9 @@ export class HcsMirrorNodeSubscriber {
     const messages: HcsPeerMessage[] = [];
     let latestTs = timestampToUse;
 
-    for (const raw of data.messages ?? []) {
+    const rawMessages = (data.messages ?? []).slice(0, 10);
+
+    for (const raw of rawMessages) {
       latestTs = raw.consensus_timestamp;
       try {
         const decodedStr = Buffer.from(raw.message, "base64").toString("utf-8");
@@ -84,13 +108,22 @@ export class HcsMirrorNodeSubscriber {
           payerTxId: parsed.payerTxId ?? parsed.payload?.payerTxId ?? `tx-${raw.sequence_number}`,
         };
 
-        // Replay defense: ignore if payerTxId was already processed
-        if (payload.payerTxId && this.processedPayerTxs.has(payload.payerTxId)) {
-          continue;
+        // Replay defense: check in-memory set and persistent SQLite table
+        if (payload.payerTxId) {
+          if (this.processedPayerTxs.has(payload.payerTxId)) {
+            continue;
+          }
+          if (this.db && (await isHcsPitchProcessed(this.db, payload.payerTxId))) {
+            this.processedPayerTxs.add(payload.payerTxId);
+            continue;
+          }
         }
 
         if (payload.payerTxId) {
           this.processedPayerTxs.add(payload.payerTxId);
+          if (this.db) {
+            await recordProcessedHcsPitch(this.db, payload.payerTxId, raw.consensus_timestamp);
+          }
         }
 
         messages.push({
@@ -124,17 +157,22 @@ export class HcsMirrorNodeSubscriber {
         for (const msg of messages) {
           await onMessage(msg);
         }
-      } catch {
-        // Resilience: log and retry on next interval
-      }
-      if (this.pollingActive) {
-        this.pollTimeout = setTimeout(pollLoop, this.pollIntervalMs);
+      } catch (err: any) {
+        // Background poller catch - brief warning per Master Ruling 1
+        console.warn(`[HCS] Mirror node poll warning: ${err?.message ?? err}`);
+      } finally {
+        if (this.pollingActive) {
+          this.pollTimeout = setTimeout(pollLoop, this.pollIntervalMs);
+        }
       }
     };
 
-    void pollLoop();
+    pollLoop();
   }
 
+  /**
+   * Stops active polling.
+   */
   public stopPolling(): void {
     this.pollingActive = false;
     if (this.pollTimeout) {
@@ -143,6 +181,9 @@ export class HcsMirrorNodeSubscriber {
     }
   }
 
+  /**
+   * Checks if a payerTxId has already been processed in memory.
+   */
   public isProcessed(payerTxId: string): boolean {
     return this.processedPayerTxs.has(payerTxId);
   }

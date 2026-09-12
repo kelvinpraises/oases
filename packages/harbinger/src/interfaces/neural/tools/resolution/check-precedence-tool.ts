@@ -1,3 +1,4 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { evaluatePrecedence } from "../../../../services/oracle/precedence-service";
 
@@ -13,11 +14,12 @@ export const CheckPrecedenceInputSchema = z.object({
 export type CheckPrecedenceInput = z.infer<typeof CheckPrecedenceInputSchema>;
 
 export function createCheckPrecedenceTool() {
-  return {
+  return createTool({
     id: "checkPrecedence",
     description: "Read-only evaluation of formal precedence state machine against time bounds and debounce count.",
     inputSchema: CheckPrecedenceInputSchema,
-    execute: async (input: CheckPrecedenceInput) => {
+    execute: async (args: any) => {
+      const input = (args && typeof args === "object" && "context" in args && args.context) ? args.context : args;
       const validated = CheckPrecedenceInputSchema.parse(input);
       const proof = evaluatePrecedence({
         breachBlock: validated.breachBlock,
@@ -29,5 +31,5 @@ export function createCheckPrecedenceTool() {
       });
       return { success: true, proof };
     },
-  };
+  });
 }

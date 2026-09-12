@@ -1,3 +1,4 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import type { GraphClient } from "../../../../services/graph/graph-client";
 import { decompressSolver, runPipeline } from "../../../../services/oracle/solver-service";
@@ -12,11 +13,12 @@ export const EvaluateMetricInputSchema = z.object({
 export type EvaluateMetricInput = z.infer<typeof EvaluateMetricInputSchema>;
 
 export function createEvaluateMetricTool(graphClient: GraphClient) {
-  return {
+  return createTool({
     id: "evaluateMetric",
     description: "Executes a stateless Time-Travel query and evaluates AST solver math for a vault at a specific block.",
     inputSchema: EvaluateMetricInputSchema,
-    execute: async (input: EvaluateMetricInput) => {
+    execute: async (args: any) => {
+      const input = (args && typeof args === "object" && "context" in args && args.context) ? args.context : args;
       const validated = EvaluateMetricInputSchema.parse(input);
       const graphData = await graphClient.queryBlock<Record<string, unknown>>(
         validated.queryBody,
@@ -33,5 +35,5 @@ export function createEvaluateMetricTool(graphClient: GraphClient) {
         scope: result.scope,
       };
     },
-  };
+  });
 }

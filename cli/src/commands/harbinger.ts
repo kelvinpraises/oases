@@ -9,7 +9,6 @@ import {
   type SourceDirective,
 } from "@oases/harbinger";
 import type { Address } from "viem";
-
 export function registerHarbingerCommand(program: Command): void {
   const harbinger = program
     .command("harbinger")
@@ -61,7 +60,8 @@ export function registerHarbingerCommand(program: Command): void {
         hederaAccountId: options.account,
         mockUsdcAmount: usdcRaw,
       });
-      console.log(`✅ Dispensed $${options.usdc} Mock USDC and 1 HBAR. Timestamp: ${receipt.timestamp}`);
+      const hbarInfo = options.account ? " and 1 HBAR" : "";
+      console.log(`✅ Dispensed $${options.usdc} Mock USDC${hbarInfo}. Timestamp: ${receipt.timestamp}`);
     });
 
   harbinger

@@ -86,25 +86,41 @@ export class LoopRunner {
       );
       const currentBlock = ping.indexerBlock;
 
-      // 3. Discrete Block Advancement Guard
+      // 3. Discrete Block Advancement Guard & Chain Reset Defense
       // If block height hasn't advanced since last evaluated tick, treat as a no-op
-      if (job.lastTickBlock !== undefined && currentBlock === job.lastTickBlock) {
-        return {
-          jobId: job.id,
-          vaultId: job.vaultId,
-          blockNumber: currentBlock,
-          conditionMet: false,
-          metricValue: 0,
-          consecutiveBreaches: job.consecutiveBreaches,
-          debounceConfirmed: false,
-          snapshot: {
+      if (job.lastTickBlock !== undefined) {
+        if (currentBlock === job.lastTickBlock) {
+          return {
+            jobId: job.id,
+            vaultId: job.vaultId,
             blockNumber: currentBlock,
-            inputs: {},
-            intermediate: {},
-            trigger: false,
-          },
-          skipped: true,
-        };
+            conditionMet: false,
+            metricValue: 0,
+            consecutiveBreaches: job.consecutiveBreaches,
+            debounceConfirmed: false,
+            snapshot: {
+              blockNumber: currentBlock,
+              inputs: {},
+              intermediate: {},
+              trigger: false,
+            },
+            skipped: true,
+          };
+        }
+
+        // Domain B, Master Ruling 3: Local Anvil Chain Reset Defense
+        if (currentBlock < job.lastTickBlock) {
+          await this.journalService.recordThought({
+            level: "INFO",
+            type: "SYSTEM_LIFECYCLE",
+            source: "loop_runner",
+            thought: `Local chain reset detected for job ${job.id} (currentBlock ${currentBlock} < lastTickBlock ${job.lastTickBlock}). Resynchronized lastTickBlock to ${currentBlock}.`,
+            confidenceScore: 1.0,
+            metadata: { jobId: job.id, currentBlock, previousLastTick: job.lastTickBlock },
+          });
+          job.lastTickBlock = currentBlock;
+          job.consecutiveBreaches = 0;
+        }
       }
 
       // 4. Decompress Solver Manifest

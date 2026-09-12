@@ -169,14 +169,14 @@ describe("Tension Cast Apex Domain Service", () => {
       assert.equal(result.marketId, directive.marketId);
       assert.equal(result.primedVaults.length, 4);
 
-      // Verify exact $20 nominal seed per vault ($10 YES / $10 NO = 20 WAD)
+      // Verify single-sided nominal seed per vault ($10 YES / $0 NO = 10 USDC on-chain)
       for (const primed of result.primedVaults) {
         assert.equal(primed.nominalSeedYes, NOMINAL_SEED_PER_SIDE);
-        assert.equal(primed.nominalSeedNo, NOMINAL_SEED_PER_SIDE);
+        assert.equal(primed.nominalSeedNo, 0n);
         assert.equal(primed.totalPrimedPot, TOTAL_NOMINAL_PER_VAULT);
       }
 
-      // Verify total nominal seed capital across N=4 child vaults: 4 * 20 WAD = 80 WAD
+      // Verify total nominal seed capital across N=4 child vaults: 4 * 10 USDC = 40 USDC
       const expectedTotalWad = 4n * TOTAL_NOMINAL_PER_VAULT;
       assert.equal(result.totalSeedCapital, expectedTotalWad);
 

@@ -1,3 +1,4 @@
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { buildReplayTicket } from "../../../../services/oracle/attestation-service";
 import { decompressSolver } from "../../../../services/oracle/solver-service";
@@ -20,11 +21,12 @@ export const CreateTicketInputSchema = z.object({
 export type CreateTicketInput = z.infer<typeof CreateTicketInputSchema>;
 
 export function createCreateTicketTool() {
-  return {
+  return createTool({
     id: "dryRunTicket",
     description: "Dry-run builds a Replay Ticket JSON for audit inspection without submitting on-chain.",
     inputSchema: CreateTicketInputSchema,
-    execute: async (input: CreateTicketInput) => {
+    execute: async (args: any) => {
+      const input = (args && typeof args === "object" && "context" in args && args.context) ? args.context : args;
       const validated = CreateTicketInputSchema.parse(input);
       const manifest = decompressSolver(validated.solverConfig);
       const precedenceProof = evaluatePrecedence({
@@ -43,5 +45,5 @@ export function createCreateTicketTool() {
       });
       return { success: true, ticket };
     },
-  };
+  });
 }

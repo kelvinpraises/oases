@@ -28,7 +28,7 @@ export class WebSocketStreamServer {
     private host = "0.0.0.0",
     options?: WebSocketStreamOptions,
   ) {
-    this.heartbeatIntervalMs = options?.heartbeatIntervalMs ?? 30_000;
+    this.heartbeatIntervalMs = options?.heartbeatIntervalMs ?? 60_000;
     this.backfillLimit = options?.backfillLimit ?? 50;
   }
 

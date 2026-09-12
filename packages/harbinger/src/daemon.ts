@@ -1,30 +1,31 @@
 import type { Server } from "node:http";
 import type { Kysely } from "kysely";
-import { loadConfig, type HarbingerConfig } from "@/config";
+import { loadConfig, type HarbingerConfig } from "./config";
 import {
   getDatabase,
   closeDatabase,
-} from "@/infrastructure/database/connection";
+} from "./infrastructure/database/connection";
 import {
   getActiveJobs,
   upsertJob,
   recordHealthSnapshot,
   type HarbingerDB,
-} from "@/infrastructure/database/schema";
-import { CronScheduler, cronScheduler } from "@/infrastructure/cron/scheduler";
-import { LoopRunner } from "@/infrastructure/cron/loop-runner";
-import { GraphClient } from "@/services/graph/graph-client";
-import { freshnessService } from "@/services/graph/freshness-service";
-import { ChainClientService } from "@/services/chain/client-service";
-import { TensionCastService } from "@/services/tension-cast/tension-cast-service";
-import { LoopService } from "@/services/loop/loop-service";
-import { JournalService } from "@/services/journal/journal-service";
-import { createNeuralAgent } from "@/interfaces/neural/index";
-import { WebSocketStreamServer } from "@/interfaces/ws/server";
-import type { ReplayTicket } from "@/models/ReplayTicket";
-import { loadAgentManifest, getActiveAgent, type AgentConfig } from "@/config/agent-manifest";
-import { HcsMirrorNodeSubscriber } from "@/services/hedera/hcs-subscriber";
-import { YieldSplitter } from "@/services/hedera/yield-splitter";
+} from "./infrastructure/database/schema";
+import { CronScheduler, cronScheduler } from "./infrastructure/cron/scheduler";
+import { LoopRunner } from "./infrastructure/cron/loop-runner";
+import { GraphClient } from "./services/graph/graph-client";
+import { freshnessService } from "./services/graph/freshness-service";
+import { ChainClientService } from "./services/chain/client-service";
+import { TensionCastService } from "./services/tension-cast/tension-cast-service";
+import { LoopService } from "./services/loop/loop-service";
+import { JournalService } from "./services/journal/journal-service";
+import { createNeuralAgent } from "./interfaces/neural/index";
+import { WebSocketStreamServer } from "./interfaces/ws/server";
+import type { ReplayTicket } from "./models/ReplayTicket";
+import { loadAgentManifest, getActiveAgent, type AgentConfig } from "./config/agent-manifest";
+import { HcsMirrorNodeSubscriber } from "./services/hedera/hcs-subscriber";
+import { YieldSplitter } from "./services/hedera/yield-splitter";
+import { faucetService, type FaucetService } from "./services/faucet/faucet-service";
 
 export interface HarbingerHarness {
   config: HarbingerConfig;
@@ -41,6 +42,7 @@ export interface HarbingerHarness {
   runner: LoopRunner;
   hcsSubscriber?: HcsMirrorNodeSubscriber;
   yieldSplitter?: YieldSplitter;
+  faucetService?: FaucetService;
   isReady: boolean;
   stop: () => Promise<void>;
 }
@@ -116,13 +118,17 @@ export async function bootHarbingerDaemon(
   // 1. Config Validation (Zod)
   const config = loadConfig(configOverrides);
 
-  // Load Agent Manifest if present
+  // Load Agent Manifest
   let agentConfig: AgentConfig | undefined;
   try {
     const manifest = loadAgentManifest();
     agentConfig = getActiveAgent(manifest, agentId);
-  } catch {
-    // Optional in standalone test harnesses
+  } catch (err) {
+    if (configOverrides?.dbPath === ":memory:" || process.env.NODE_ENV === "test") {
+      agentConfig = undefined;
+    } else {
+      throw new Error(`HarbingerDaemonBootError: Failed to load authoritative agent manifest: ${String(err)}`);
+    }
   }
 
   // 2. Database Initialization (SQLite WAL mode via Kysely)
@@ -237,7 +243,7 @@ export async function bootHarbingerDaemon(
   let hcsSubscriber: HcsMirrorNodeSubscriber | undefined;
   const topicId = agentConfig?.hcsInboxTopicId ?? process.env.HARBINGER_HCS_TOPIC_ID;
   if (topicId) {
-    hcsSubscriber = new HcsMirrorNodeSubscriber(topicId);
+    hcsSubscriber = new HcsMirrorNodeSubscriber(topicId, undefined, db);
     hcsSubscriber.startPolling(async (pitchMsg) => {
       if (pitchMsg.payload?.marketId) {
         await yieldSplitter.processPitchYield(pitchMsg.payload.marketId);
@@ -260,6 +266,7 @@ export async function bootHarbingerDaemon(
     runner,
     hcsSubscriber,
     yieldSplitter,
+    faucetService,
     isReady: true,
     stop: shutdownHarbingerDaemon,
   };

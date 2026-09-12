@@ -57,7 +57,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     logThoughtTool.description,
     LogThoughtInputSchema.shape,
     async (args) => {
-      const res = await logThoughtTool.execute(args);
+      const res = await (logThoughtTool as any).execute(args);
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
@@ -67,7 +67,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     updateCadenceTool.description,
     UpdateCadenceInputSchema.shape,
     async (args) => {
-      const res = await updateCadenceTool.execute(args);
+      const res = await (updateCadenceTool as any).execute(args);
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
@@ -77,7 +77,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     spawnJobTool.description,
     SpawnJobInputSchema.shape,
     async (args) => {
-      const res = await spawnJobTool.execute(args);
+      const res = await (spawnJobTool as any).execute(args);
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
@@ -87,7 +87,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     killJobTool.description,
     KillJobInputSchema.shape,
     async (args) => {
-      const res = await killJobTool.execute(args);
+      const res = await (killJobTool as any).execute(args);
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
@@ -97,7 +97,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     listJobsTool.description,
     {},
     async () => {
-      const res = await listJobsTool.execute();
+      const res = await (listJobsTool as any).execute();
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
@@ -107,7 +107,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     querySubgraphTool.description,
     QuerySubgraphInputSchema.shape,
     async (args) => {
-      const res = await querySubgraphTool.execute(args);
+      const res = await (querySubgraphTool as any).execute(args);
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
@@ -117,7 +117,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     evaluateMetricTool.description,
     EvaluateMetricInputSchema.shape,
     async (args) => {
-      const res = await evaluateMetricTool.execute(args);
+      const res = await (evaluateMetricTool as any).execute(args);
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
@@ -127,7 +127,7 @@ export function createHarbingerMcpServer(services: McpServerServices): McpServer
     faucetTool.description,
     RequestFaucetFundsInputSchema.shape,
     async (args) => {
-      const res = await faucetTool.execute(args);
+      const res = await (faucetTool as any).execute(args);
       return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
     },
   );
