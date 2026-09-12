@@ -70,6 +70,7 @@ export const ANOMALY_GRADES: Record<AnomalyGradeCode, AnomalyGradeInfo> = {
 }
 
 interface HurricaneConeProps {
+  title?: string
   vault?: ChildVault
   character?: ProtocolCharacter
   currentBlock?: number
@@ -79,6 +80,7 @@ interface HurricaneConeProps {
 }
 
 export function HurricaneCone({
+  title = 'Trajectory Forecast',
   vault,
   character,
   currentBlock = 20000142,
@@ -295,29 +297,33 @@ export function HurricaneCone({
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <h3 className="font-display font-semibold text-sm text-neutral-900 tracking-tight">
-              Hurricane Forecast Cone & Trajectory Geometry
+              {title}
             </h3>
             <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${gradeInfo.badgeClass}`}>
               <Pulse className="w-3 h-3" weight="bold" />
-              GRADE {gradeInfo.code}: {gradeInfo.label.toUpperCase()}
+              {gradeInfo.code}: {gradeInfo.label.toUpperCase()}
             </span>
           </div>
           <p className="text-xs text-neutral-500">
-            Target: <strong className="text-neutral-700">{entityName}</strong> — {metricLabel}
+            {character ? (
+              <strong className="text-neutral-700">{metricLabel}</strong>
+            ) : (
+              <span><strong className="text-neutral-700">{entityName}</strong> — {metricLabel}</span>
+            )}
           </p>
         </div>
 
         {/* Current Metrics Pill */}
         <div className="flex items-center gap-4 font-mono text-xs">
           <div className="text-right">
-            <span className="text-[10px] text-neutral-400 block uppercase">Current Telemetry</span>
+            <span className="text-[10px] text-neutral-400 block uppercase">Current</span>
             <span className="font-bold text-neutral-900 text-sm">
               {config.formatValue(config.currentValue)}
             </span>
           </div>
           <div className="h-6 w-px bg-neutral-200" />
           <div className="text-right">
-            <span className="text-[10px] text-neutral-400 block uppercase">Deviation (z)</span>
+            <span className="text-[10px] text-neutral-400 block uppercase">Deviation</span>
             <span className="font-bold text-amber-700 text-sm">
               +{config.zScore.toFixed(2)}σ
             </span>
@@ -456,7 +462,6 @@ export function HurricaneCone({
             r="6"
             fill="#f59e0b"
             fillOpacity="0.2"
-            className="animate-ping"
           />
           <circle
             cx={currentX}
@@ -534,11 +539,11 @@ export function HurricaneCone({
         <div className="flex flex-wrap items-center gap-4 text-[11px] text-neutral-600">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-4 rounded-sm bg-neutral-900" />
-            <span>Observed Drift</span>
+            <span>Observed</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-0.5 w-4 bg-amber-500 border-b border-dashed border-amber-500" />
-            <span>Forward Cone</span>
+            <span>Projected</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-3 rounded-sm bg-emerald-100 border border-emerald-300" />
@@ -556,7 +561,7 @@ export function HurricaneCone({
 
         <div className="text-[11px] text-neutral-500 flex items-center gap-1">
           <Info className="w-3.5 h-3.5 text-neutral-400" />
-          <span>Cadence: 2-block confirmation debounce</span>
+          <span>2-block debounce</span>
         </div>
       </div>
     </div>

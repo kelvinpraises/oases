@@ -80,45 +80,45 @@ function TensionCastDetailPage() {
         </div>
       }
     >
-      <div className="space-y-8">
+      <div className="space-y-8 stagger-container">
         {/* Directive Telemetry Header */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
+        <div className="grid gap-4 sm:grid-cols-3 stagger-container">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs interactive-card">
             <span className="text-xs font-mono text-neutral-500 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-neutral-400" />
-              Incident Block Horizon
+              Block Horizon
             </span>
-            <p className="mt-1 text-sm font-mono font-bold text-neutral-900">
+            <p className="mt-1 text-sm font-mono font-bold text-neutral-900 tabular-nums">
               #{formatBlockNumber(tensionCast.startBlock)} → #{formatBlockNumber(tensionCast.deadlineBlock)}
             </p>
             <span className="text-[11px] font-mono text-neutral-400">
-              {tensionCast.deadlineBlock - tensionCast.startBlock} Blocks Timebox
+              {tensionCast.deadlineBlock - tensionCast.startBlock} Blocks
             </span>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs interactive-card">
             <span className="text-xs font-mono text-neutral-500 flex items-center gap-1.5">
               <Stack className="w-3.5 h-3.5 text-neutral-400" />
               Contagion Cluster
             </span>
             <p className="mt-1 text-sm font-mono font-bold text-neutral-900">
-              {tensionCast.childVaults.length} Child Conviction Vaults
+              {tensionCast.childVaults.length} Child Vaults
             </p>
             <span className="text-[11px] font-mono text-emerald-700 font-medium">
-              Open Multi-Vault Set
+              Multi-Vault Cluster
             </span>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs interactive-card">
             <span className="text-xs font-mono text-neutral-500 flex items-center gap-1.5">
               <Coins className="w-3.5 h-3.5 text-neutral-400" />
-              Protocol Seed Base
+              Protocol Seed
             </span>
             <p className="mt-1 text-sm font-mono font-bold text-neutral-900">
-              $20.00 USDC Seed / Vault
+              $20.00 Seed / Vault
             </p>
             <span className="text-[11px] font-mono text-neutral-500">
-              $10 YES / $10 NO Primed
+              $10 YES / $10 NO
             </span>
           </div>
         </div>
@@ -132,7 +132,7 @@ function TensionCastDetailPage() {
 
         {/* Selected Child Vault Section */}
         {activeVault && (
-          <div className="space-y-6">
+          <div className="space-y-6 stagger-container">
             {/* 1. Hurricane Forecast Cone & Trajectory Geometry */}
             <HurricaneCone
               vault={activeVault}
@@ -153,7 +153,7 @@ function TensionCastDetailPage() {
                 <div className="flex items-center gap-2">
                   <Lightning className="w-4 h-4 text-amber-600" weight="fill" />
                   <h3 className="font-display font-semibold text-sm text-neutral-900">
-                    Streaming Target: {activeVault.characterName} — {activeVault.question}
+                    {activeVault.characterName} — {activeVault.question}
                   </h3>
                 </div>
 
@@ -164,7 +164,7 @@ function TensionCastDetailPage() {
                   className="bg-neutral-900 hover:bg-neutral-800 text-white font-mono text-xs gap-1.5 h-8 font-semibold shadow-2xs"
                 >
                   <Plus className="w-3.5 h-3.5" weight="bold" />
-                  Pitch Anomaly ($5.00 USDC)
+                  Pitch Anomaly ($5)
                 </Button>
               </div>
 
@@ -184,14 +184,15 @@ function TensionCastDetailPage() {
           <PitchFeed
             characterIdFilter={activeVault?.characterId}
             limit={5}
+            showDrawerCta={false}
           />
         </div>
 
         {/* Live Detective Thought Journal Section */}
         <div className="space-y-3">
           <JournalFeed
-            title="Incident Detective Reasoning Stream"
-            subtitle={`Real-time Mastra AI detective thought stream monitoring ${tensionCast.title}`}
+            title="Detective Thought Stream"
+            subtitle={`Mastra AI telemetry reasoning for ${tensionCast.title}`}
           />
         </div>
       </div>

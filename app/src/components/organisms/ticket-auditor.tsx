@@ -148,7 +148,7 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-display font-semibold text-sm text-neutral-900 tracking-tight">
-                Replay Ticket Auditor & Proof Inspector
+                Replay Ticket Auditor
               </h3>
               <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-800 border border-emerald-200">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" weight="fill" />
@@ -156,7 +156,7 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
               </span>
             </div>
             <p className="text-xs text-neutral-500 font-sans">
-              Cryptographic attestation and mathematical provenance for {vault.question}
+              Attestation & provenance for {vault.question}
             </p>
           </div>
         </div>
@@ -168,19 +168,19 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
           className="font-mono text-xs gap-1.5 h-8 border-neutral-300"
         >
           <BracketsCurly className="w-3.5 h-3.5" weight="bold" />
-          {isOpen ? 'Close Auditor Drawer' : 'Open Ticket Auditor'}
+          {isOpen ? 'Close Auditor' : 'Inspect Ticket'}
         </Button>
       </div>
 
       {/* Expanded Auditor Drawer */}
       {isOpen && (
-        <div className="p-5 space-y-6">
+        <div className="p-5 space-y-6 animate-in fade-in duration-200 ease-out">
           {/* Navigation Tabs */}
           <div className="flex items-center gap-2 border-b border-neutral-200 pb-3 font-mono text-xs">
             <button
               type="button"
               onClick={() => setActiveTab('proof')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-[color,background-color,transform] active:scale-[0.97] duration-160 ease-out ${
                 activeTab === 'proof'
                   ? 'bg-neutral-900 text-white shadow-xs'
                   : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -193,27 +193,27 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
             <button
               type="button"
               onClick={() => setActiveTab('manifest')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-[color,background-color,transform] active:scale-[0.97] duration-160 ease-out ${
                 activeTab === 'manifest'
                   ? 'bg-neutral-900 text-white shadow-xs'
                   : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
               }`}
             >
               <Cpu className="w-3.5 h-3.5" weight="bold" />
-              Base64 Solver Manifest
+              Base64 Manifest
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('graphql')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-[color,background-color,transform] active:scale-[0.97] duration-160 ease-out ${
                 activeTab === 'graphql'
                   ? 'bg-neutral-900 text-white shadow-xs'
                   : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
               }`}
             >
               <CodeBlock className="w-3.5 h-3.5" weight="bold" />
-              GraphQL Time-Travel Query
+              GraphQL Query
             </button>
           </div>
 
@@ -222,7 +222,7 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-4 font-mono text-xs">
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[10px] text-neutral-400 uppercase">Hierarchical Status</span>
+                  <span className="text-[10px] text-neutral-400 uppercase">Status</span>
                   <div className="mt-1 font-bold text-neutral-900 flex items-center gap-1 text-sm">
                     <CheckCircle className="w-4 h-4 text-emerald-600" weight="fill" />
                     {ticket.precedenceProof.decision}
@@ -230,26 +230,26 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
                 </div>
 
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[10px] text-neutral-400 uppercase">Debounce Confirmation</span>
+                  <span className="text-[10px] text-neutral-400 uppercase">Debounce</span>
                   <div className="mt-1 font-bold text-emerald-700 text-sm">
                     {ticket.precedenceProof.consecutiveBreachBlocks} / {ticket.precedenceProof.requiredDebounce} Blocks
                   </div>
-                  <span className="text-[10px] text-neutral-400">Anti-flashloan defense</span>
+                  <span className="text-[10px] text-neutral-400">Anti-flashloan</span>
                 </div>
 
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[10px] text-neutral-400 uppercase">First Breach Block</span>
+                  <span className="text-[10px] text-neutral-400 uppercase">Breach Block</span>
                   <div className="mt-1 font-bold text-neutral-900 text-sm">
                     #{ticket.precedenceProof.breachBlock}
                   </div>
-                  <span className="text-[10px] text-neutral-400">Within horizon timebox</span>
+                  <span className="text-[10px] text-neutral-400">Within horizon</span>
                 </div>
 
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[10px] text-neutral-400 uppercase">Proof Validity</span>
+                  <span className="text-[10px] text-neutral-400 uppercase">Validity</span>
                   <div className="mt-1 font-bold text-emerald-700 text-sm flex items-center gap-1">
                     <CheckCircle className="w-4 h-4 text-emerald-600" weight="fill" />
-                    CRYPTOGRAPHICALLY VALID
+                    VALID
                   </div>
                 </div>
               </div>
@@ -258,7 +258,7 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
               <div className="space-y-2">
                 <h4 className="font-mono text-xs font-semibold text-neutral-700 flex items-center gap-1.5">
                   <ArrowsClockwise className="w-3.5 h-3.5 text-neutral-500" />
-                  Consecutive Block Snapshot Traces (Debounce Verification)
+                  Consecutive Block Snapshots (Debounce)
                 </h4>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -272,19 +272,19 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
                           Step #{idx + 1}: Block #{snap.blockNumber}
                         </span>
                         <span className="rounded bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
-                          BREACH TRIGGERED
+                          BREACHED
                         </span>
                       </div>
 
                       <div className="space-y-1">
-                        <span className="text-[10px] uppercase text-neutral-400 block">Extracted Inputs:</span>
+                        <span className="text-[10px] uppercase text-neutral-400 block">Inputs:</span>
                         <div className="bg-white border border-neutral-200 rounded p-2 text-[11px] text-neutral-700 leading-relaxed overflow-x-auto">
                           {JSON.stringify(snap.inputs, null, 2)}
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <span className="text-[10px] uppercase text-neutral-400 block">Evaluated Signals:</span>
+                        <span className="text-[10px] uppercase text-neutral-400 block">Signals:</span>
                         <div className="bg-white border border-neutral-200 rounded p-2 text-[11px] text-neutral-700 leading-relaxed overflow-x-auto">
                           {JSON.stringify(snap.intermediate, null, 2)}
                         </div>
@@ -296,8 +296,19 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
 
               {/* Proof Reason statement */}
               <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3 text-xs font-mono text-neutral-700">
-                <span className="font-semibold text-neutral-900 block mb-0.5">Proof Verdict Justification:</span>
+                <span className="font-semibold text-neutral-900 block mb-0.5">Verdict:</span>
                 {ticket.precedenceProof.reason}
+              </div>
+
+              {/* Banked Position Integrity Attestation */}
+              <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3 text-xs font-mono text-neutral-700 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" weight="fill" />
+                <div className="space-y-1">
+                  <span className="font-semibold text-neutral-900 block">Position Equity Guarantee:</span>
+                  <p className="text-[11px] text-neutral-600 font-sans leading-relaxed">
+                    Under <code className="font-mono text-neutral-800">Vault.sol</code> and <code className="font-mono text-neutral-800">BondingBoard.sol</code>, all conviction positions continuously crystallize earned shares into <code className="font-mono text-neutral-800">sharesAccrued</code>. Pausing or depleting a stream halts continuous minting but locks 100% of accumulated shares on-chain for pro-rata prize pot settlement.
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -307,16 +318,16 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
             <div className="space-y-4 font-mono text-xs">
               <div className="space-y-1.5">
                 <span className="font-semibold text-neutral-800 flex items-center justify-between">
-                  <span>On-Chain Base64 Commitment (`solverConfig` stored in `Vault.sol`):</span>
+                  <span>Base64 Commitment (`solverConfig`):</span>
                   <span className="text-[10px] text-neutral-400">Length: {base64Sample.length} bytes</span>
                 </span>
-                <div className="rounded-lg bg-neutral-900 text-neutral-100 p-3 text-[11px] font-mono break-all leading-relaxed max-h-24 overflow-y-auto">
+                <div className="rounded-lg bg-neutral-50 border border-neutral-200 text-neutral-800 p-3 text-[11px] font-mono break-all leading-relaxed max-h-24 overflow-y-auto">
                   {base64Sample}
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <span className="font-semibold text-neutral-800">Decoded Declarative AST Manifest:</span>
+                <span className="font-semibold text-neutral-800">Decoded AST Manifest:</span>
                 <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3 text-[11px] font-mono leading-relaxed overflow-x-auto max-h-72">
                   <pre className="text-neutral-800">{JSON.stringify(manifest, null, 2)}</pre>
                 </div>
@@ -329,13 +340,13 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
             <div className="space-y-3 font-mono text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-neutral-800">
-                  Stateless Subgraph Query Template:
+                  Subgraph Query Template:
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleCopyQuery}
-                  className="h-7 text-xs font-mono gap-1 border-neutral-300"
+                  className="h-7 text-xs font-mono gap-1 border-neutral-300 transition-[color,background-color,border-color,transform] active:scale-[0.97] duration-160 ease-out"
                 >
                   {copied ? (
                     <>
@@ -345,18 +356,18 @@ export function TicketAuditor({ vault, className = '' }: TicketAuditorProps) {
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      Copy Replay Query
+                      Copy Query
                     </>
                   )}
                 </Button>
               </div>
 
-              <div className="rounded-lg bg-neutral-900 text-neutral-100 p-3 text-[11px] font-mono leading-relaxed overflow-x-auto">
-                <pre>{ticket.queryTemplate}</pre>
+              <div className="rounded-lg bg-neutral-50 border border-neutral-200 text-neutral-800 p-3 text-[11px] font-mono leading-relaxed overflow-x-auto">
+                <pre className="text-emerald-800 font-medium">{ticket.queryTemplate}</pre>
               </div>
 
               <p className="text-xs font-sans text-neutral-500">
-                Any independent auditor can execute this exact query against The Graph indexer at block #{ticket.precedenceProof.breachBlock} to reproduce the identical inputs and verify the resolution.
+                Execute this query against The Graph at block #{ticket.precedenceProof.breachBlock} to reproduce identical inputs and verify resolution.
               </p>
             </div>
           )}

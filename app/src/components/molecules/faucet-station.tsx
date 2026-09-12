@@ -71,34 +71,35 @@ export function FaucetStation({ className, compact = false }: FaucetStationProps
         size="sm"
         onClick={handleClaim}
         disabled={isClaiming || cooldown > 0}
-        className={`font-mono text-xs font-semibold h-8 border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50 shadow-2xs transition-all ${
+        className={`font-mono text-xs font-semibold h-8 border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50 shadow-2xs transition-[color,background-color,border-color,transform] active:scale-[0.97] duration-160 ease-out ${
           cooldown > 0 ? 'opacity-60 cursor-not-allowed' : ''
         }`}
         title="Claim 1 HBAR for gas + $100 Mock USDC for conviction streaming"
       >
-        {isClaiming ? (
+        {isClaiming && (
           <CircleNotch className="w-3.5 h-3.5 text-emerald-600 animate-spin shrink-0" />
-        ) : cooldown > 0 ? (
+        )}
+        {!isClaiming && cooldown > 0 && (
           <Drop className="w-3.5 h-3.5 text-neutral-400 shrink-0" weight="bold" />
-        ) : (
-          <span className="text-sm shrink-0 leading-none">🚰</span>
         )}
 
-        <span className="ml-1.5 whitespace-nowrap">
+        <span className={`${isClaiming || cooldown > 0 ? 'ml-1.5' : ''} whitespace-nowrap`}>
           {isClaiming
-            ? 'Minting Funds...'
-            : cooldown > 0
-            ? `Cooldown (${cooldown}s)`
-            : compact
-            ? 'Claim Demo Funds'
-            : '🚰 Claim Demo Funds (1 HBAR + $100 USDC)'}
+            ? 'Minting...'
+            : cooldown > 0 ? (
+              <span>
+                Cooldown (<span className="tabular-nums font-semibold">{cooldown}</span>s)
+              </span>
+            ) : compact
+            ? '🚰 Faucet'
+            : '🚰 Faucet ($100 USDC)'}
         </span>
       </Button>
 
       {/* Floating Status Notification */}
       {feedback && (
         <div
-          className={`absolute top-full mt-2 right-0 z-50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-mono shadow-md whitespace-nowrap animate-in fade-in slide-in-from-top-1 ${
+          className={`absolute top-full mt-2 right-0 z-50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-mono shadow-md whitespace-nowrap toast-enter ${
             feedback.type === 'success'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
               : 'border-rose-200 bg-rose-50 text-rose-800'

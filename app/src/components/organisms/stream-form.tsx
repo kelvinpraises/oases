@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Play,
   Stop,
@@ -17,6 +17,7 @@ import {
   ConvictionSide,
   perSecToRate,
   usdcToRaw,
+  sharesToNumber,
 } from '@oases/options'
 import type { Hex } from 'viem'
 import type { ChildVault } from '@/types/tension-cast'
@@ -38,10 +39,14 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
     userTokenIds,
     connect,
     writer,
+    reader,
     refreshUserData,
   } = useWalletContext()
 
   const [side, setSide] = useState<ConvictionSide>(ConvictionSide.YES)
+  const [bankedShares, setBankedShares] = useState<number>(0)
+  const [activePositionRate, setActivePositionRate] = useState<bigint>(0n)
+  const [isPositionDepleted, setIsPositionDepleted] = useState<boolean>(false)
   // Travel fraction 0..100 for quadratic slider
   const [rateSliderTravel, setRateSliderTravel] = useState<number>(31.6) // default ~0.10/sec
   const [deposit, setDeposit] = useState<number>(25) // default $25 USDC
@@ -101,6 +106,39 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
   // NFT Gate check
   const hasNft = userTokenIds.length > 0
   const activeTokenId = hasNft ? userTokenIds[0] : null
+
+  // Query active on-chain position for banked shares
+  useEffect(() => {
+    if (!reader || !activeTokenId || !vault.vaultId) {
+      setBankedShares(0)
+      setActivePositionRate(0n)
+      setIsPositionDepleted(false)
+      return
+    }
+
+    let isMounted = true
+    const fetchPosition = async () => {
+      try {
+        const pos = await reader.readPosition(vault.vaultId as Hex, side, activeTokenId)
+        if (isMounted && pos) {
+          setBankedShares(sharesToNumber(pos.sharesAccrued))
+          setActivePositionRate(pos.rate)
+          setIsPositionDepleted(pos.depleted)
+        }
+      } catch {
+        if (isMounted) {
+          setBankedShares(0)
+          setActivePositionRate(0n)
+          setIsPositionDepleted(false)
+        }
+      }
+    }
+
+    fetchPosition()
+    return () => {
+      isMounted = false
+    }
+  }, [reader, activeTokenId, vault.vaultId, side])
 
   const handleStartStream = async () => {
     if (!isConnected) {
@@ -193,10 +231,10 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-4">
         <div>
           <h3 className="font-display font-semibold text-base text-neutral-900 tracking-tight">
-            Conviction Stream Configuration
+            Stream Configuration
           </h3>
           <p className="text-xs text-neutral-500 font-sans">
-            Continuous zero-gas Drips position accumulator targeting {vault.characterName}
+            Continuous zero-gas Drips position for {vault.characterName}
           </p>
         </div>
 
@@ -205,7 +243,7 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
           <button
             type="button"
             onClick={() => setSide(ConvictionSide.YES)}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1 font-semibold transition-all ${
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1 font-semibold transition-[color,background-color,box-shadow,transform] active:scale-[0.97] duration-160 ease-out ${
               side === ConvictionSide.YES
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-neutral-600 hover:text-neutral-900'
@@ -216,7 +254,7 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
           <button
             type="button"
             onClick={() => setSide(ConvictionSide.NO)}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1 font-semibold transition-all ${
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1 font-semibold transition-[color,background-color,box-shadow,transform] active:scale-[0.97] duration-160 ease-out ${
               side === ConvictionSide.NO
                 ? 'bg-rose-600 text-white shadow-xs'
                 : 'text-neutral-600 hover:text-neutral-900'
@@ -232,7 +270,7 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
         <div className="flex items-center justify-between text-xs">
           <label htmlFor="rate-slider" className="font-semibold text-neutral-800 flex items-center gap-1.5">
             <Lightning className="w-3.5 h-3.5 text-amber-600" weight="fill" />
-            Stream Rate (USDC/sec)
+            Stream Rate
           </label>
           <div className="flex items-baseline gap-1 font-mono">
             <span className="text-base font-bold text-neutral-900 tabular-nums">
@@ -265,9 +303,9 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
               key={preset}
               type="button"
               onClick={() => setRateFromPreset(preset)}
-              className={`rounded px-2 py-0.5 font-mono text-[10px] border transition-colors ${
+              className={`rounded px-2.5 py-1 min-h-[28px] font-mono text-[10px] border transition-[color,background-color,border-color,transform] active:scale-[0.97] duration-160 ease-out ${
                 Math.abs(ratePerSec - preset) < 0.005
-                  ? 'bg-neutral-900 text-white border-neutral-900 font-semibold'
+                  ? 'bg-neutral-900 text-white border-neutral-900 font-semibold shadow-2xs'
                   : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'
               }`}
             >
@@ -282,7 +320,7 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
         <div className="flex items-center justify-between text-xs">
           <label htmlFor="deposit-slider" className="font-semibold text-neutral-800 flex items-center gap-1.5">
             <Coins className="w-3.5 h-3.5 text-emerald-600" weight="fill" />
-            Total Conviction Deposit
+            Conviction Deposit
           </label>
           <div className="flex items-baseline gap-1 font-mono">
             <span className="text-base font-bold text-neutral-900 tabular-nums">
@@ -311,9 +349,9 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
               key={preset}
               type="button"
               onClick={() => setDeposit(preset)}
-              className={`rounded px-2 py-0.5 font-mono text-[10px] border transition-colors ${
+              className={`rounded px-2.5 py-1 min-h-[28px] font-mono text-[10px] border transition-[color,background-color,border-color,transform] active:scale-[0.97] duration-160 ease-out ${
                 deposit === preset
-                  ? 'bg-neutral-900 text-white border-neutral-900 font-semibold'
+                  ? 'bg-neutral-900 text-white border-neutral-900 font-semibold shadow-2xs'
                   : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'
               }`}
             >
@@ -328,7 +366,7 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
         <div>
           <div className="text-[10px] uppercase text-neutral-400 flex items-center gap-1">
             <Clock className="w-3 h-3 text-neutral-500" />
-            Runway Duration
+            Runway
           </div>
           <div className="font-semibold text-neutral-900 text-sm mt-0.5">
             {formatRunway(runwaySeconds)}
@@ -342,13 +380,13 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
             Base Price (P₀)
           </div>
           <div className="font-semibold text-neutral-900 text-sm mt-0.5">$0.100</div>
-          <div className="text-[10px] text-neutral-500">Linear bonding seed</div>
+          <div className="text-[10px] text-neutral-500">Linear bonding</div>
         </div>
 
         <div className="col-span-2 sm:col-span-1">
           <div className="text-[10px] uppercase text-neutral-400 flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-neutral-500" />
-            Position Pass NFT
+            Position Pass
           </div>
           <div className="font-semibold text-neutral-900 text-sm mt-0.5">
             {hasNft ? (
@@ -363,13 +401,53 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
         </div>
       </div>
 
+      {/* Banked Shares & Position State Display */}
+      {activeTokenId && (bankedShares > 0 || activePositionRate > 0n || isPositionDepleted) && (
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs font-mono space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-neutral-800 font-semibold">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" weight="fill" />
+              <span>Position Equity</span>
+            </div>
+            <span
+              className={`rounded px-2 py-0.5 text-[10px] font-semibold border ${
+                activePositionRate > 0n
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : isPositionDepleted
+                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                  : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+              }`}
+            >
+              {activePositionRate > 0n
+                ? 'STREAMING LIVE'
+                : isPositionDepleted
+                ? 'STREAM DEPLETED (EQUITY PRESERVED)'
+                : 'STREAM PAUSED (EQUITY PRESERVED)'}
+            </span>
+          </div>
+
+          <div className="flex items-baseline justify-between pt-1 border-t border-neutral-200/60">
+            <div>
+              <div className="text-[10px] text-neutral-400 uppercase">Banked Shares</div>
+              <div className="text-base font-bold text-neutral-900 tabular-nums">
+                {bankedShares.toFixed(3)}{' '}
+                <span className="text-[10px] font-normal text-emerald-700">SHARES (LOCKED)</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-neutral-500 font-sans max-w-[220px] text-right">
+              Halting or depleting preserves 100% of earned shares.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 60 FPS Zero-Gas Accumulation Ticker Preview */}
       <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 text-xs">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-mono text-[10px] font-semibold tracking-wider uppercase text-emerald-900">
-              60 FPS Zero-Gas Projection Engine
+              60 FPS Zero-Gas Ticker
             </span>
           </div>
           <span className="font-mono text-[10px] text-emerald-700">
@@ -379,13 +457,13 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
 
         <div className="flex items-baseline justify-between pt-1">
           <div>
-            <div className="text-[10px] font-mono text-neutral-500">Projected Share Accumulation</div>
+            <div className="text-[10px] font-mono text-neutral-500">Projected Shares</div>
             <div className="font-mono text-lg font-bold text-neutral-900 tabular-nums">
               {projection.formattedShares} <span className="text-xs font-normal text-neutral-500">SHARES</span>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] font-mono text-neutral-500">Est. Terminal Value</div>
+            <div className="text-[10px] font-mono text-neutral-500">Est. Value</div>
             <div className="font-mono text-sm font-semibold text-emerald-800 tabular-nums">
               ~${((deposit / 0.1) * 0.1).toFixed(2)} USDC
             </div>
@@ -423,7 +501,7 @@ export function StreamForm({ vault, marketId, onSuccess }: StreamFormProps) {
             ? 'Connect Browser Wallet'
             : !hasNft
             ? 'Mint Position Pass & Open Stream'
-            : `Open Conviction Stream ($${ratePerSec.toFixed(3)}/s)`}
+            : `Start Stream ($${ratePerSec.toFixed(3)}/s)`}
         </Button>
 
         {hasNft && (

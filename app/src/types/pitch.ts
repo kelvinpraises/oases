@@ -14,6 +14,7 @@ export interface AnomalyPitch {
   timestamp: number
   status: PitchStatus
   txHash?: string
+  isSimulated?: boolean
 }
 
 export interface PitchTemplate {
@@ -30,8 +31,8 @@ export const ANOMALY_TEMPLATES: PitchTemplate[] = [
   {
     id: 'tpl-1',
     title: 'Whale 0x7a Health Degradation',
-    characterId: 'whale-0x7a',
-    characterName: 'Whale 0x7a',
+    characterId: 'actor-whale-0x7a',
+    characterName: 'Aave Whale 0x7a',
     thesis: 'Whale 0x7a health factor degrades below 1.05 during collateral liquidation cascade',
     metricKey: 'healthFactor',
     evaluationTimebox: 50,
@@ -39,8 +40,8 @@ export const ANOMALY_TEMPLATES: PitchTemplate[] = [
   {
     id: 'tpl-2',
     title: 'Aave v3 Core Reserve Depletion',
-    characterId: 'aave-core',
-    characterName: 'Aave v3 Core Pool',
+    characterId: 'place-aave-v3-core',
+    characterName: 'Aave v3 Core Reserve Pool',
     thesis: 'Sudden borrowing shock drains available reserve liquidity below $5,000,000 threshold',
     metricKey: 'availableLiquidityUSD',
     evaluationTimebox: 100,
@@ -48,10 +49,10 @@ export const ANOMALY_TEMPLATES: PitchTemplate[] = [
   {
     id: 'tpl-3',
     title: '0x7a Debt Coupling Contagion',
-    characterId: 'whale-0x7a',
-    characterName: 'Whale 0x7a',
+    characterId: 'bond-whale-debt',
+    characterName: '0x7a CRV Debt Coupling',
     thesis: 'Collateral liquidation trigger transmits bad-debt contagion to secondary lending markets',
-    metricKey: 'contagionDebtRatio',
+    metricKey: 'totalBorrowBalanceUSD',
     evaluationTimebox: 75,
   },
 ]

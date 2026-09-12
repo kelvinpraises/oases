@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { AnomalyPitch } from '@/types/pitch'
 
-const STORAGE_KEY = 'oases:pitches:v1'
+const STORAGE_KEY = 'oases:pitches:v2'
 
 const INITIAL_PITCHES: AnomalyPitch[] = [
   {
     id: 'pitch-init-1',
-    characterId: 'whale-0x7a',
-    characterName: 'Whale 0x7a',
+    characterId: 'actor-whale-0x7a',
+    characterName: 'Aave Whale 0x7a',
     submitter: '0x388C818CA8B9251b393131C08a736A67ccB19297',
     thesis: 'Whale 0x7a health factor degrades below 1.05 during collateral liquidation cascade',
     metricKey: 'healthFactor',
@@ -17,12 +17,13 @@ const INITIAL_PITCHES: AnomalyPitch[] = [
     gasReserveUSDC: 1.0,
     timestamp: Date.now() - 1000 * 60 * 18, // 18m ago
     status: 'VERIFIED',
-    txHash: '0x712a...98f1',
+    txHash: '0x712a83f120ab7183e9b119283741829374619283',
+    isSimulated: false,
   },
   {
     id: 'pitch-init-2',
-    characterId: 'aave-core',
-    characterName: 'Aave v3 Core Pool',
+    characterId: 'place-aave-v3-core',
+    characterName: 'Aave v3 Core Reserve Pool',
     submitter: '0x71C8fb4237745C1EE29547E2738A84994d38614f',
     thesis: 'Sudden borrowing shock drains available reserve liquidity below $5,000,000 threshold',
     metricKey: 'availableLiquidityUSD',
@@ -32,7 +33,8 @@ const INITIAL_PITCHES: AnomalyPitch[] = [
     gasReserveUSDC: 1.0,
     timestamp: Date.now() - 1000 * 60 * 65, // 65m ago
     status: 'VERIFIED',
-    txHash: '0x43e0...32bd',
+    txHash: '0x43e029ba83726154982736412093847561829374',
+    isSimulated: false,
   },
 ]
 
@@ -44,7 +46,16 @@ export function usePitches() {
       if (stored) {
         const parsed = JSON.parse(stored)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed
+          // Canonical ID migration
+          return parsed.map((p: AnomalyPitch) => {
+            if (p.characterId === 'whale-0x7a') {
+              return { ...p, characterId: 'actor-whale-0x7a', characterName: 'Aave Whale 0x7a' }
+            }
+            if (p.characterId === 'aave-core') {
+              return { ...p, characterId: 'place-aave-v3-core', characterName: 'Aave v3 Core Reserve Pool' }
+            }
+            return p
+          })
         }
       }
     } catch {
@@ -83,7 +94,10 @@ export function usePitches() {
       thesis: string
       metricKey: string
       evaluationTimebox: number
+      txHash?: string
+      isSimulated?: boolean
     }): Promise<AnomalyPitch> => {
+      const isSimulated = params.isSimulated ?? !params.txHash
       const newPitch: AnomalyPitch = {
         id: `pitch-${Date.now()}`,
         characterId: params.characterId,
@@ -97,7 +111,8 @@ export function usePitches() {
         gasReserveUSDC: 1.0, // 20% sentinel gas reserve
         timestamp: Date.now(),
         status: 'VERIFIED',
-        txHash: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+        txHash: params.txHash,
+        isSimulated,
       }
 
       setPitches((prev) => {

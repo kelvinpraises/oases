@@ -20,13 +20,13 @@ function HomePage() {
   return (
     <TerminalShell
       title="Active Tension Casts"
-      subtitle="Source Directives coordinating multi-vault conviction markets over indexed Ethereum state space."
+      subtitle="Conviction clusters across indexed on-chain state."
       breadcrumbs={[{ label: 'Oases' }, { label: 'Tension Casts' }]}
       actions={
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-mono text-neutral-700">
-            <Radio className="w-4 h-4 text-emerald-600 animate-pulse" weight="bold" />
-            <span>{activeCount} Active Directives</span>
+          <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-mono text-neutral-700">
+            <Radio className="w-4 h-4 text-neutral-900" weight="bold" />
+            <span className="tabular-nums">{activeCount} Active</span>
           </div>
 
           <Button
@@ -41,56 +41,57 @@ function HomePage() {
         </div>
       }
     >
-      <div className="space-y-8">
-        {/* Protocol Context Banner */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="space-y-8 stagger-container">
+        {/* Protocol Banner */}
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-neutral-300 transition-[border-color,box-shadow] duration-200 ease-out">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-800">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white shadow-inner">
                 <Compass className="w-5 h-5" weight="bold" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-neutral-900 font-display">
-                  Hurricane Forecast Cones for Live Financial Physics
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                  Protocol
+                </p>
+                <h3 className="text-sm font-semibold text-neutral-900 font-display tracking-tight text-balance">
+                  Contagion Clusters & Forecast Bands
                 </h3>
-                <p className="text-xs text-neutral-600 leading-relaxed max-w-3xl">
-                  Tension Casts group correlated on-chain stress into contagion clusters. When an Actor or Bond
-                  deviates from its rolling forecast band, child conviction vaults open for continuous capital streaming.
+                <p className="text-xs text-neutral-500 leading-relaxed max-w-3xl text-pretty">
+                  On-chain stress grouped into clusters. When an entity deviates from its forecast band,
+                  child vaults open for conviction streaming.
                 </p>
               </div>
             </div>
 
             <Link
               to="/characters"
-              className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-neutral-900 hover:text-neutral-600 self-start md:self-auto shrink-0"
+              className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-neutral-800 hover:text-neutral-950 self-start md:self-auto shrink-0 group transition-colors"
             >
-              <span>Explore Character Taxonomy</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>Characters</span>
+              <ArrowRight className="w-3.5 h-3.5 text-neutral-500 group-hover:translate-x-1 group-hover:text-neutral-900 transition-[transform,color] duration-160 ease-out" />
             </Link>
           </div>
         </div>
 
         {/* Tension Casts Grid */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold font-display text-neutral-900">
-              Monitored Incidents ({tensionCasts.length})
-            </h2>
-            <span className="text-xs font-mono text-neutral-500">
-              Live Horizon Timeboxes
+          <h2 className="flex items-baseline gap-2.5 text-base font-semibold font-display tracking-tight text-neutral-900">
+            Incidents
+            <span className="font-mono text-[11px] font-medium text-neutral-400 tabular-nums">
+              {tensionCasts.length} live
             </span>
-          </div>
+          </h2>
 
           {tensionCasts.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 p-12 text-center bg-white">
               <ShieldWarning className="w-8 h-8 text-neutral-400 mb-2" />
-              <p className="text-sm font-medium text-neutral-900">No Active Tension Casts</p>
-              <p className="text-xs text-neutral-500 max-w-sm mt-1">
-                All protocol entities are operating within nominal baseline forecast bands (Grade G0).
+              <p className="text-sm font-medium text-neutral-900">No Active Incidents</p>
+              <p className="text-xs text-neutral-500 max-w-sm mt-1 text-pretty">
+                All entities within nominal forecast bands.
               </p>
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 stagger-container">
               {tensionCasts.map((cast) => (
                 <TensionCastCard key={cast.id} tensionCast={cast} />
               ))}
@@ -98,21 +99,16 @@ function HomePage() {
           )}
         </div>
 
-        {/* Live Pitch Activity Feed Ticker */}
-        <div className="space-y-4">
-          <PitchFeed />
-        </div>
+        {/* Pitch Feed */}
+        <PitchFeed showDrawerCta={false} />
 
-        {/* Global Live Detective Reasoning Terminal */}
-        <div className="space-y-4">
-          <JournalFeed
-            title="Global Protocol Detective Stream"
-            subtitle="Autonomous Mastra AI agent actively monitoring health factors, liquidity reserves, and invariant stability"
-          />
-        </div>
+        {/* Detective Journal */}
+        <JournalFeed
+          title="Detective Stream"
+          subtitle="AI monitoring health factors and invariant stability"
+        />
       </div>
 
-      {/* Anomaly Pitch Drawer */}
       <PitchDrawer
         isOpen={isPitchDrawerOpen}
         onClose={() => setIsPitchDrawerOpen(false)}

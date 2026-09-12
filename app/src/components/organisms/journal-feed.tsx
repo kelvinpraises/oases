@@ -17,8 +17,8 @@ interface JournalFeedProps {
 }
 
 export function JournalFeed({
-  title = 'Detective Reasoning Journal',
-  subtitle = 'Mastra AI Detective live stream analyzing on-chain invariants and entity telemetry',
+  title = 'Detective Journal',
+  subtitle = 'Mastra AI stream analyzing on-chain invariants',
   maxHeight = 'max-h-[480px]',
   className = '',
 }: JournalFeedProps) {
@@ -36,22 +36,22 @@ export function JournalFeed({
     switch (level) {
       case 'ANOMALY':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-amber-800 border border-amber-200">
-            <WarningCircle className="w-3 h-3 text-amber-600" weight="bold" />
+          <span className="inline-flex items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-neutral-800 border border-neutral-200">
+            <WarningCircle className="w-3 h-3 text-neutral-500" weight="bold" />
             ANOMALY
           </span>
         )
       case 'ALERT':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-rose-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-rose-800 border border-rose-200">
-            <WarningCircle className="w-3 h-3 text-rose-600" weight="fill" />
+          <span className="inline-flex items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-neutral-800 border border-neutral-200">
+            <WarningCircle className="w-3 h-3 text-neutral-500" weight="fill" />
             ALERT
           </span>
         )
       case 'RESOLUTION':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-800 border border-emerald-200">
-            <CheckCircle className="w-3 h-3 text-emerald-600" weight="bold" />
+          <span className="inline-flex items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-neutral-800 border border-neutral-200">
+            <CheckCircle className="w-3 h-3 text-neutral-500" weight="bold" />
             RESOLVED
           </span>
         )
@@ -86,11 +86,11 @@ export function JournalFeed({
               <div className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2 py-0.5 font-mono text-[10px]">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
-                    isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'
+                    isConnected ? 'bg-neutral-900' : 'bg-neutral-400'
                   }`}
                 />
                 <span className="text-neutral-600">
-                  {isConnected ? 'LIVE HARNESS' : 'BUFFERED FEED'}
+                  {isConnected ? 'LIVE' : 'BUFFERED'}
                 </span>
               </div>
             </div>
@@ -105,7 +105,7 @@ export function JournalFeed({
               key={lvl}
               type="button"
               onClick={() => setFilterLevel(lvl)}
-              className={`rounded px-2 py-1 font-mono text-[10px] font-medium transition-colors ${
+              className={`rounded px-2 py-1 font-mono text-[10px] font-medium transition-[color,background-color,border-color,transform] active:scale-[0.96] duration-160 ease-out ${
                 filterLevel === lvl
                   ? 'bg-neutral-900 text-white shadow-xs'
                   : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
@@ -117,7 +117,7 @@ export function JournalFeed({
           <button
             type="button"
             onClick={() => setAutoScroll(!autoScroll)}
-            className={`rounded px-2 py-1 font-mono text-[10px] font-medium border transition-colors ${
+            className={`rounded px-2 py-1 font-mono text-[10px] font-medium border transition-[color,background-color,border-color,transform] active:scale-[0.96] duration-160 ease-out ${
               autoScroll
                 ? 'border-neutral-300 bg-neutral-100 text-neutral-900 font-semibold'
                 : 'border-neutral-200 bg-white text-neutral-400'
@@ -133,7 +133,7 @@ export function JournalFeed({
       <div className={`overflow-y-auto divide-y divide-neutral-100 p-3 space-y-2.5 ${maxHeight}`}>
         {entries.length === 0 ? (
           <div className="py-12 text-center text-xs font-mono text-neutral-400">
-            No journal entries matching filter.
+            No entries matching filter.
           </div>
         ) : (
           entries.map((entry) => (
@@ -174,8 +174,7 @@ export function JournalFeed({
               <div className="mt-2 flex items-center justify-between pt-1 border-t border-neutral-200/50 text-[10px] font-mono text-neutral-400">
                 <div className="flex items-center gap-1.5">
                   <Brain className="w-3 h-3 text-neutral-500" />
-                  <span>Agent Confidence:</span>
-                  <span className="font-semibold text-neutral-700">
+                  <span className="font-semibold text-neutral-700 tabular-nums">
                     {(entry.confidenceScore * 100).toFixed(0)}%
                   </span>
                 </div>

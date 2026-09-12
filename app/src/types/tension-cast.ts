@@ -22,7 +22,6 @@ export interface ChildVault {
   resolvedOutcome?: number
   solverConfig?: string
   injectedYieldUSDC?: number
-  queryCount?: number
 }
 
 export interface TensionCast {

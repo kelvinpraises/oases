@@ -22,8 +22,10 @@ interface PitchDrawerProps {
 }
 
 const CHARACTERS = [
-  { id: 'whale-0x7a', name: 'Whale 0x7a' },
-  { id: 'aave-core', name: 'Aave v3 Core Pool' },
+  { id: 'actor-whale-0x7a', name: 'Aave Whale 0x7a' },
+  { id: 'place-aave-v3-core', name: 'Aave v3 Core Reserve Pool' },
+  { id: 'bond-whale-debt', name: '0x7a CRV Debt Coupling' },
+  { id: 'act-flash-liquidation', name: 'Flash Liquidation Cascade' },
 ]
 
 export function PitchDrawer({
@@ -35,30 +37,25 @@ export function PitchDrawer({
   const { isConnected, address, usdcBalance, connect } = useWalletContext()
   const { submitPitch } = usePitches()
 
-  const [characterId, setCharacterId] = useState(defaultCharacterId || 'whale-0x7a')
-  const [thesis, setThesis] = useState('')
-  const [metricKey, setMetricKey] = useState('healthFactor')
-  const [evaluationTimebox, setEvaluationTimebox] = useState(50)
+  const defaultTpl = ANOMALY_TEMPLATES[0]
+  const [characterId, setCharacterId] = useState(
+    defaultCharacterId || defaultTpl?.characterId || 'actor-whale-0x7a'
+  )
+  const [thesis, setThesis] = useState(() => defaultTpl?.thesis || '')
+  const [metricKey, setMetricKey] = useState(() => defaultTpl?.metricKey || 'healthFactor')
+  const [evaluationTimebox, setEvaluationTimebox] = useState(
+    () => defaultTpl?.evaluationTimebox || 50
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [txSuccess, setTxSuccess] = useState<AnomalyPitch | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // Sync default character
+  // Sync default character when passed from parent
   useEffect(() => {
     if (defaultCharacterId) {
       setCharacterId(defaultCharacterId)
     }
   }, [defaultCharacterId])
-
-  // Set default template if empty
-  useEffect(() => {
-    if (!thesis && ANOMALY_TEMPLATES.length > 0) {
-      const defaultTpl = ANOMALY_TEMPLATES[0]
-      setThesis(defaultTpl.thesis)
-      setMetricKey(defaultTpl.metricKey)
-      setEvaluationTimebox(defaultTpl.evaluationTimebox)
-    }
-  }, [thesis])
 
   // Handle template selection
   const handleSelectTemplate = (tplId: string) => {
@@ -87,7 +84,7 @@ export function PitchDrawer({
   if (!isOpen) return null
 
   const selectedCharName =
-    CHARACTERS.find((c) => c.id === characterId)?.name || 'Whale 0x7a'
+    CHARACTERS.find((c) => c.id === characterId)?.name || 'Aave Whale 0x7a'
   const hasInsufficientBalance = isConnected && usdcBalance < 5.0
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,6 +118,7 @@ export function PitchDrawer({
         thesis: thesis.trim(),
         metricKey: metricKey.trim(),
         evaluationTimebox: Number(evaluationTimebox) || 50,
+        isSimulated: true,
       })
 
       setTxSuccess(pitch)
@@ -137,12 +135,12 @@ export function PitchDrawer({
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-neutral-900/40 backdrop-blur-xs transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-neutral-900/40 backdrop-blur-xs drawer-backdrop"
         onClick={onClose}
       />
 
       <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
-        <div className="w-screen max-w-md bg-white border-l border-neutral-200 shadow-2xl flex flex-col justify-between">
+        <div className="w-screen max-w-md bg-white border-l border-neutral-200 shadow-2xl flex flex-col justify-between drawer-panel">
           {/* Drawer Header */}
           <div className="p-6 border-b border-neutral-100 flex items-start justify-between">
             <div>
@@ -151,11 +149,11 @@ export function PitchDrawer({
                   ⚡
                 </span>
                 <h2 className="font-display font-semibold text-lg text-neutral-900 tracking-tight">
-                  Pitch Anomaly Thesis
+                  Pitch Anomaly
                 </h2>
               </div>
               <p className="mt-1 text-xs text-neutral-500 font-sans">
-                Submit an autonomous telemetry anomaly. Injects $4.00 (80%) directly into the Tension Cast prize pot.
+                Submit telemetry anomaly. Injects $4.00 (80%) directly into prize pot.
               </p>
             </div>
             <button
@@ -176,14 +174,24 @@ export function PitchDrawer({
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-base text-neutral-900">
-                    Anomaly Pitch Injected!
+                    {txSuccess.isSimulated
+                      ? 'Anomaly Pitch Committed (Demo Testnet)'
+                      : 'Anomaly Pitch Confirmed On-Chain'}
                   </h3>
                   <p className="text-xs text-neutral-600 mt-1">
-                    Your anomaly proposal was certified on-chain and registered with the sovereign sentinel fleet.
+                    {txSuccess.isSimulated
+                      ? 'Registered proposal with the local Sentinel testnet. $5.00 debited for protocol commitment ($4.00 yield pot / $1.00 gas reserve).'
+                      : 'Transaction confirmed on EVM. Yield injected directly into the active prize pot.'}
                   </p>
                 </div>
 
                 <div className="rounded-lg border border-emerald-200 bg-white p-3 font-mono text-xs text-left space-y-1.5">
+                  <div className="flex justify-between text-neutral-500">
+                    <span>Receipt Status:</span>
+                    <span className="font-semibold text-emerald-700">
+                      {txSuccess.isSimulated ? 'Demo Commit (Local Testnet)' : 'Certified On-Chain'}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-neutral-500">
                     <span>Injected Pot Yield:</span>
                     <span className="font-bold text-emerald-700">+$4.00 USDC</span>
@@ -218,7 +226,7 @@ export function PitchDrawer({
                 {/* Prefilled Templates */}
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-neutral-700 flex items-center justify-between">
-                    <span>Prefilled Anomaly Templates</span>
+                    <span>Anomaly Templates</span>
                     <span className="text-[10px] text-neutral-400 font-mono">1-Click Load</span>
                   </label>
                   <div className="grid grid-cols-1 gap-2">
@@ -227,11 +235,11 @@ export function PitchDrawer({
                         key={tpl.id}
                         type="button"
                         onClick={() => handleSelectTemplate(tpl.id)}
-                        className="flex flex-col text-left rounded-lg border border-neutral-200 p-2.5 hover:border-neutral-400 hover:bg-neutral-50 transition-all group"
+                        className="flex flex-col text-left rounded-lg border border-neutral-200 p-2.5 hover:border-neutral-400 hover:bg-neutral-50 transition-[border-color,background-color,transform] active:scale-[0.97] duration-160 ease-out group"
                       >
                         <div className="flex items-center justify-between text-xs font-semibold text-neutral-900 group-hover:text-emerald-700">
                           <span>{tpl.title}</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-emerald-700 transition-transform group-hover:translate-x-0.5" />
+                          <ArrowRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-emerald-700 transition-transform duration-160 ease-out group-hover:translate-x-0.5" />
                         </div>
                         <span className="text-[11px] text-neutral-500 mt-1 line-clamp-1">
                           {tpl.thesis}
@@ -244,7 +252,7 @@ export function PitchDrawer({
                 {/* Target Character */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-semibold text-neutral-700">
-                    Target Protocol Character
+                    Target Entity
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {CHARACTERS.map((char) => (
@@ -252,7 +260,7 @@ export function PitchDrawer({
                         key={char.id}
                         type="button"
                         onClick={() => setCharacterId(char.id)}
-                        className={`rounded-lg border px-3 py-2 text-xs font-medium text-left transition-colors ${
+                        className={`rounded-lg border px-3 py-2 text-xs font-medium text-left transition-[border-color,background-color,color,transform] active:scale-[0.97] duration-160 ease-out ${
                           characterId === char.id
                             ? 'border-neutral-900 bg-neutral-900 text-white font-semibold'
                             : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
@@ -314,7 +322,7 @@ export function PitchDrawer({
                   <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                     <span className="font-semibold text-neutral-800 flex items-center gap-1.5">
                       <Coins className="w-4 h-4 text-emerald-600" weight="fill" />
-                      Total Pitch Commitment
+                      Pitch Commitment
                     </span>
                     <span className="font-bold text-neutral-900 text-sm">$5.00 USDC</span>
                   </div>
@@ -323,14 +331,14 @@ export function PitchDrawer({
                     <div className="flex items-center justify-between">
                       <span className="text-neutral-600 flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        80% Tension Cast Yield Injection
+                        80% Pot Yield Injection
                       </span>
                       <span className="font-semibold text-emerald-700">+$4.00 USDC</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-neutral-600 flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-neutral-400" />
-                        20% Sovereign Sentinel Gas Reserve
+                        20% Sentinel Gas Reserve
                       </span>
                       <span className="font-semibold text-neutral-700">$1.00 USDC</span>
                     </div>
@@ -340,7 +348,7 @@ export function PitchDrawer({
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[10px] font-sans text-amber-900 flex items-start gap-2">
                     <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" weight="fill" />
                     <span>
-                      <strong>Irrevocable Protocol Commitment:</strong> Pitch fees are injected directly into the prize pot yield upon submission and are non-refundable regardless of thesis verdict.
+                      <strong>Irrevocable Commitment:</strong> Pitch fees inject directly into pot yield and are non-refundable.
                     </span>
                   </div>
                 </div>
@@ -361,7 +369,7 @@ export function PitchDrawer({
             {!txSuccess && (
               <>
                 <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-neutral-500">Your Wallet Balance:</span>
+                  <span className="text-neutral-500">Wallet Balance:</span>
                   <span
                     className={`font-semibold ${
                       hasInsufficientBalance ? 'text-rose-600' : 'text-neutral-900'
@@ -380,14 +388,14 @@ export function PitchDrawer({
                   {isSubmitting ? (
                     <>
                       <CircleNotch className="w-4 h-4 text-emerald-400 animate-spin" />
-                      Injecting Protocol Yield...
+                      Injecting Yield...
                     </>
                   ) : !isConnected ? (
-                    'Connect Wallet to Submit Pitch'
+                    'Connect Wallet to Submit'
                   ) : hasInsufficientBalance ? (
                     'Insufficient Funds ($5.00 Required)'
                   ) : (
-                    'Submit Anomaly Pitch ($5.00 USDC)'
+                    'Submit Pitch ($5.00 USDC)'
                   )}
                 </Button>
               </>

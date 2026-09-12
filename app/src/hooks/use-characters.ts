@@ -79,7 +79,12 @@ export function useCharacters(selectedClass: PhysicalClass | 'All' = 'All') {
 export function useCharacter(id?: string) {
   const character = useMemo(() => {
     if (!id) return undefined
-    return PROTOCOL_CHARACTERS.find((c) => c.id === id)
+    const cleanId = id.toLowerCase().trim()
+    return (
+      PROTOCOL_CHARACTERS.find((c) => c.id === cleanId) ||
+      PROTOCOL_CHARACTERS.find((c) => c.id.replace(/^(actor|place|bond|act)-/, '') === cleanId) ||
+      PROTOCOL_CHARACTERS.find((c) => cleanId.replace(/^(actor|place|bond|act)-/, '') === c.id.replace(/^(actor|place|bond|act)-/, ''))
+    )
   }, [id])
 
   return {

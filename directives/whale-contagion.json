@@ -1,0 +1,42 @@
+{
+  "marketId": "0xmarket_whale_contagion_cluster",
+  "title": "Aave Whale 0x7a Liquidation & Systemic Contagion Cascade",
+  "streamId": "stream_oases_whale_cascade",
+  "creator": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "startBlock": 100,
+  "deadlineBlock": 1000000,
+  "childVaults": [
+    {
+      "vaultId": "actor-whale-0x7a",
+      "marketId": "0xmarket_whale_contagion_cluster",
+      "classType": "Actor",
+      "targetAddress": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "question": "Aave Whale 0x7a collateral health factor degraded below 1.05?",
+      "compiledSolverConfig": "zlib:eJxNj7FqxDAQRH9FTC2M3YqkuUDIF6QJKdb22hKns3yrVcgh9O/h7op4moHhFW8qflhySBschq6HxbWw3OCebd48T+cPpqj+nSZNYqrZU4qmGn9cm2mwWGMaKWa4Cr/AYSal7o53RxjNQoUZ7qsizHDIAyz0tjMc+HcXWCxJLiUSHPxiXl7NUy4V3YvCYRSmyaN9WwjnFIs+PlSohHVl+SQJNEY+oBYaLnxKZZsfhllJ9BTTdIYb+t5iZppj2Ph/u6e1P+UnYRg="
+    },
+    {
+      "vaultId": "place-aave-v3-core",
+      "marketId": "0xmarket_whale_contagion_cluster",
+      "classType": "Place",
+      "targetAddress": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "question": "Aave V3 Core pool reserve liquidity drained below $5,000,000 threshold?",
+      "compiledSolverConfig": "zlib:eJxNj7FqxDAQRH9FTC2M3YqkuUDIF6QJKdb22hKns3yrVcgh9O/h7op4moHhFW8qflhySBschq6HxbWw3OCebd48T+cPpqj+nSZNYqrZU4qmGn9cm2mwWGMaKWa4Cr/AYSal7o53RxjNQoUZ7qsizHDIAyz0tjMc+HcXWCxJLiUSHPxiXl7NUy4V3YvCYRSmyaN9WwjnFIs+PlSohHVl+SQJNEY+oBYaLnxKZZsfhllJ9BTTdIYb+t5iZppj2Ph/u6e1P+UnYRg="
+    },
+    {
+      "vaultId": "act-flashloan-arb",
+      "marketId": "0xmarket_whale_contagion_cluster",
+      "classType": "Act",
+      "targetAddress": "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD",
+      "question": "Flashloan liquidation arbitrage spike detected across Uniswap V3 pools?",
+      "compiledSolverConfig": "zlib:eJxNj7FqxDAQRH9FTC2M3YqkuUDIF6QJKdb22hKns3yrVcgh9O/h7op4moHhFW8qflhySBschq6HxbWw3OCebd48T+cPpqj+nSZNYqrZU4qmGn9cm2mwWGMaKWa4Cr/AYSal7o53RxjNQoUZ7qsizHDIAyz0tjMc+HcXWCxJLiUSHPxiXl7NUy4V3YvCYRSmyaN9WwjnFIs+PlSohHVl+SQJNEY+oBYaLnxKZZsfhllJ9BTTdIYb+t5iZppj2Ph/u6e1P+UnYRg="
+    },
+    {
+      "vaultId": "bond-whale-debt",
+      "marketId": "0xmarket_whale_contagion_cluster",
+      "classType": "Bond",
+      "targetAddress": "0x5d33e40f2285dbe357e2d9ed51e89d070b89bcab",
+      "question": "0x7a CRV debt coupling bad-debt transmitted to secondary lending markets?",
+      "compiledSolverConfig": "zlib:eJxNj7FqxDAQRH9FTC2M3YqkuUDIF6QJKdb22hKns3yrVcgh9O/h7op4moHhFW8qflhySBschq6HxbWw3OCebd48T+cPpqj+nSZNYqrZU4qmGn9cm2mwWGMaKWa4Cr/AYSal7o53RxjNQoUZ7qsizHDIAyz0tjMc+HcXWCxJLiUSHPxiXl7NUy4V3YvCYRSmyaN9WwjnFIs+PlSohHVl+SQJNEY+oBYaLnxKZZsfhllJ9BTTdIYb+t5iZppj2Ph/u6e1P+UnYRg="
+    }
+  ]
+}

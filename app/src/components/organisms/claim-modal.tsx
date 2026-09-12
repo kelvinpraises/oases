@@ -38,31 +38,45 @@ export function ClaimModal({
   const [claimableAmount, setClaimableAmount] = useState<number>(0)
   const [winningSide, setWinningSide] = useState<number | null>(null)
   const [isResolved, setIsResolved] = useState<boolean>(vault.status === 'RESOLVED')
+  const [resolvedAt, setResolvedAt] = useState<number | null>(null)
+  const [nowSec, setNowSec] = useState<number>(() => Math.floor(Date.now() / 1000))
   const [isClaiming, setIsClaiming] = useState<boolean>(false)
   const [claimMessage, setClaimMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const activeTokenId = userTokenIds.length > 0 ? userTokenIds[0] : null
 
-  // Check on-chain claimable state
+  // Check on-chain claimable state and resolution timestamp
   useEffect(() => {
-    if (!reader || !activeTokenId || !vault.vaultId) return
+    if (!reader || !vault.vaultId) return
 
     let isMounted = true
     const checkClaimable = async () => {
       try {
-        const record = await reader.readClaimable(vault.vaultId as Hex, activeTokenId)
-        if (isMounted && record) {
-          setIsResolved(record.isResolved)
-          setWinningSide(record.winningSide !== undefined ? record.winningSide : null)
-          setClaimableAmount(rawToUsdc(record.claimable))
+        const [claimRec, vaultRec] = await Promise.all([
+          activeTokenId ? reader.readClaimable(vault.vaultId as Hex, activeTokenId).catch(() => null) : null,
+          reader.readVault(vault.vaultId as Hex).catch(() => null),
+        ])
+
+        if (isMounted) {
+          if (claimRec) {
+            setIsResolved(claimRec.isResolved)
+            setWinningSide(claimRec.winningSide !== undefined ? claimRec.winningSide : null)
+            setClaimableAmount(rawToUsdc(claimRec.claimable))
+          }
+          if (vaultRec) {
+            if (vaultRec.resolvedAt > 0) {
+              setResolvedAt(vaultRec.resolvedAt)
+            }
+            if (vaultRec.status === 3) {
+              // Status.Resolved
+              setIsResolved(true)
+            }
+          }
         }
       } catch {
-        // Fallback for mock/offline preview
-        if (isMounted && vault.status === 'RESOLVED') {
-          setIsResolved(true)
-          setWinningSide(1) // YES outcome
-          setClaimableAmount(124.8) // nominal winner payout
+        if (isMounted) {
+          setClaimableAmount(0)
         }
       }
     }
@@ -72,6 +86,25 @@ export function ClaimModal({
       isMounted = false
     }
   }, [reader, activeTokenId, vault])
+
+  // Drips 10-second streaming cycle finality ceiling
+  const CYCLE_SECS = 10
+  const readyAt = useMemo(() => {
+    if (!resolvedAt || resolvedAt <= 0) return null
+    return Math.ceil((resolvedAt + CYCLE_SECS - 1) / CYCLE_SECS) * CYCLE_SECS
+  }, [resolvedAt])
+
+  // Live 1-second countdown ticker while within finality window
+  useEffect(() => {
+    if (!readyAt) return
+    const interval = setInterval(() => {
+      setNowSec(Math.floor(Date.now() / 1000))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [readyAt])
+
+  const secondsUntilReady = readyAt ? Math.max(0, readyAt - nowSec) : 0
+  const isSettlementPending = isResolved && secondsUntilReady > 0
 
   // All resolved child vaults in the tension cast for 1-click batch claim
   const resolvedVaultIds = useMemo(() => {
@@ -163,22 +196,39 @@ export function ClaimModal({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-display font-semibold text-sm text-neutral-900 tracking-tight">
-                Settlement & Claim Station
+                Settlement & Claim
               </h3>
               <span
                 className={`rounded px-2 py-0.5 font-mono text-[10px] font-semibold border ${
-                  isResolved
+                  isSettlementPending
+                    ? 'bg-amber-50 text-amber-800 border-amber-200 animate-pulse'
+                    : isResolved
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     : 'bg-neutral-100 text-neutral-600 border-neutral-200'
                 }`}
               >
-                {isResolved ? 'MARKET RESOLVED' : 'MARKET ACTIVE (STREAMING)'}
+                {isSettlementPending ? (
+                  <span>
+                    CYCLE FINALIZING (<span className="tabular-nums font-bold">{secondsUntilReady}</span>s)
+                  </span>
+                ) : isResolved ? (
+                  'RESOLVED'
+                ) : (
+                  'STREAMING'
+                )}
               </span>
             </div>
             <p className="text-xs text-neutral-500 font-sans">
-              {isResolved
-                ? `Winning side: ${winningSide === 1 ? 'YES BREACH' : 'NO DEFENSE'}. Claim your pro-rata share of the positive-sum pot.`
-                : 'Accumulated shares will unlock for withdrawal immediately upon certified on-chain resolution.'}
+              {isSettlementPending ? (
+                <span>
+                  Resolution certified. Awaiting Drips {CYCLE_SECS}s cycle boundary (
+                  <span className="tabular-nums font-semibold font-mono">{secondsUntilReady}s</span>) to unlock claims.
+                </span>
+              ) : isResolved ? (
+                `Winning side: ${winningSide === 1 ? 'YES' : 'NO'}. Claim pro-rata share of pot.`
+              ) : (
+                'Accumulated shares unlock upon certified resolution.'
+              )}
             </p>
           </div>
         </div>
@@ -212,19 +262,27 @@ export function ClaimModal({
         <Button
           type="button"
           onClick={handleClaimSingle}
-          disabled={isClaiming || (!isResolved && claimableAmount <= 0)}
+          disabled={isClaiming || isSettlementPending || (!isResolved && claimableAmount <= 0)}
           className={`w-full sm:flex-1 h-10 font-mono text-xs gap-2 font-semibold shadow-sm ${
-            isResolved && claimableAmount > 0
+            isSettlementPending
+              ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed border border-neutral-300'
+              : isResolved && claimableAmount > 0
               ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
               : 'bg-neutral-900 hover:bg-neutral-800 text-white'
           }`}
         >
           <HandCoins className="w-4 h-4" weight="bold" />
-          {isClaiming
-            ? 'Processing Settlement Claim...'
-            : isResolved
-            ? `Claim ${formatUSDC(claimableAmount)} Winnings`
-            : 'Settlement Locked (Active Stream)'}
+          {isClaiming ? (
+            'Processing Claim...'
+          ) : isSettlementPending ? (
+            <span>
+              Finalizing Cycle (<span className="tabular-nums font-bold">{secondsUntilReady}</span>s)...
+            </span>
+          ) : isResolved ? (
+            `Claim ${formatUSDC(claimableAmount)}`
+          ) : (
+            'Locked (Stream Active)'
+          )}
         </Button>
 
         {resolvedVaultIds.length > 1 && (
@@ -232,11 +290,11 @@ export function ClaimModal({
             type="button"
             variant="outline"
             onClick={handleClaimBatch}
-            disabled={isClaiming}
+            disabled={isClaiming || isSettlementPending}
             className="w-full sm:w-auto h-10 border-neutral-300 font-mono text-xs gap-1.5 text-neutral-700 hover:bg-neutral-50"
           >
             <Sparkle className="w-4 h-4 text-amber-600" weight="fill" />
-            Batch Claim All ({resolvedVaultIds.length} Vaults)
+            Batch Claim ({resolvedVaultIds.length} Vaults)
           </Button>
         )}
       </div>

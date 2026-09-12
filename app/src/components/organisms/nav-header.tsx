@@ -1,11 +1,10 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Radio, Wallet, CheckCircle, ArrowsLeftRight } from '@phosphor-icons/react'
+import { Wallet, CheckCircle, ArrowsLeftRight } from '@phosphor-icons/react'
 import { Button } from '@/components/atoms/button'
 import { FaucetStation } from '@/components/molecules/faucet-station'
 import { useWalletContext } from '@/providers/wallet-provider'
-import { useProtocolContext } from '@/providers/protocol-provider'
 import { formatAddress } from '@/utils/format-address'
-import { formatBlockNumber, formatUSDC } from '@/utils/format-currency'
+import { formatUSDC } from '@/utils/format-currency'
 
 export function NavHeader() {
   const routerState = useRouterState()
@@ -20,7 +19,6 @@ export function NavHeader() {
     connect,
     disconnect,
   } = useWalletContext()
-  const { currentBlock, telemetryStatus } = useProtocolContext()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/95 backdrop-blur-sm">
@@ -67,25 +65,16 @@ export function NavHeader() {
 
         {/* Right: Telemetry pill, Network Switcher, Faucet & Wallet */}
         <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="hidden lg:flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] font-mono text-neutral-600">
-            <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" weight="bold" />
-            <span>Block #{formatBlockNumber(currentBlock)}</span>
-            <span className="text-neutral-300">|</span>
-            <span className="text-emerald-700 font-medium">{telemetryStatus}</span>
-          </div>
+
 
           {/* Network Switcher Pill */}
           <button
             type="button"
             onClick={() => switchNetwork(chainId === 296 ? 31337 : 296)}
             title={`Active: ${isHedera ? 'Hedera Testnet (296)' : 'Localhost Anvil (31337)'}. Click to switch.`}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 px-2.5 py-1 text-[11px] font-mono transition-colors text-neutral-700"
+            className="flex items-center gap-1.5 h-8 rounded-md border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 px-2.5 text-[11px] font-mono transition-[color,background-color,border-color,transform] active:scale-[0.97] duration-160 ease-out text-neutral-700 shadow-2xs"
           >
-            <span
-              className={`h-2 w-2 rounded-full ${
-                isHedera ? 'bg-purple-600' : 'bg-emerald-500'
-              }`}
-            />
+            <span className="h-2 w-2 rounded-full bg-neutral-900" />
             <span className="font-semibold">
               {isHedera ? 'Hedera 296' : 'Anvil 31337'}
             </span>
@@ -112,7 +101,7 @@ export function NavHeader() {
                 onClick={disconnect}
                 className="font-mono text-xs gap-1.5 h-8 border-neutral-300 bg-white"
               >
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" weight="fill" />
+                <CheckCircle className="w-3.5 h-3.5 text-neutral-600" weight="fill" />
                 {formatAddress(address, 4)}
               </Button>
             </div>
@@ -124,7 +113,7 @@ export function NavHeader() {
               className="font-mono text-xs gap-1.5 h-8 bg-neutral-900 hover:bg-neutral-800 text-white"
             >
               <Wallet className="w-3.5 h-3.5" weight="bold" />
-              Connect Wallet
+              Connect
             </Button>
           )}
         </div>

@@ -1,11 +1,11 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Chivo:ital,wght@0,400..900;1,400..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:ital,wght@0,400..800;1,400..800&display=swap");
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Space Grotesk", "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Chivo", "Instrument Sans", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
 :root {
@@ -30,6 +30,11 @@
   --input: #e4e4e7;
   --ring: #18181b;
   --radius: 0.5rem;
+
+  /* Emil Kowalski custom easing curves */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 * {
@@ -50,12 +55,129 @@ body {
   background-color: #fafafa;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-code, pre, .font-mono {
+/* Tabular figures for all live telemetry counters */
+.tabular-nums,
+[data-tabular],
+code,
+pre,
+.font-mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .font-display {
   font-family: var(--font-display);
+  letter-spacing: -0.025em;
 }
+
+/* Tactical Mission Control Background Grid Texture */
+.bg-grid-subtle {
+  background-size: 24px 24px;
+  background-image: radial-gradient(circle, rgba(9, 9, 11, 0.045) 1px, transparent 1px);
+}
+
+/* Microscopic scanline overlay for mission control surfaces */
+.panel-subtle-border {
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+/* Tactile button press feedback: Emil Kowalski canonical scale(0.96) with 160ms ease-out */
+button,
+[role="button"] {
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Drawer physics: iOS-like deceleration curve (Ionic/Vaul) */
+@keyframes drawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drawer-panel {
+  animation: drawerSlideIn 280ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.drawer-backdrop {
+  animation: backdropFadeIn 180ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* Never animate from scale(0): start from scale(0.95) with opacity */
+@keyframes toastEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-enter {
+  animation: toastEnter 160ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* Stagger entrance animations for lists and grids (pure opacity fade, zero vertical jitter) */
+@keyframes staggerFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.stagger-container > *:nth-child(1) { animation: staggerFadeIn 180ms cubic-bezier(0.23, 1, 0.32, 1) 0ms both; }
+.stagger-container > *:nth-child(2) { animation: staggerFadeIn 180ms cubic-bezier(0.23, 1, 0.32, 1) 30ms both; }
+.stagger-container > *:nth-child(3) { animation: staggerFadeIn 180ms cubic-bezier(0.23, 1, 0.32, 1) 60ms both; }
+.stagger-container > *:nth-child(4) { animation: staggerFadeIn 180ms cubic-bezier(0.23, 1, 0.32, 1) 90ms both; }
+.stagger-container > *:nth-child(5) { animation: staggerFadeIn 180ms cubic-bezier(0.23, 1, 0.32, 1) 120ms both; }
+.stagger-container > *:nth-child(6) { animation: staggerFadeIn 180ms cubic-bezier(0.23, 1, 0.32, 1) 150ms both; }
+
+/* Interactive card hover (pure border & shadow elevation, zero vertical translateY shift) */
+.interactive-card {
+  transition: box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1),
+              border-color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .interactive-card:hover {
+    box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+    border-color: #d4d4d8;
+  }
+}
+
+/* Accessibility: respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
