@@ -17,9 +17,11 @@ interface IAgentRegistry {
 contract AgentRegistry is IAgentRegistry, Ownable {
     mapping(address => bool) private _authorized;
     mapping(address => string) public agentMetadata;
+    mapping(address => uint256) private _agentIndices;
     address[] private _agents;
 
     constructor(address initialOwner) {
+        require(initialOwner != address(0), "AgentRegistry: zero owner");
         _transferOwnership(initialOwner);
     }
 
@@ -27,6 +29,7 @@ contract AgentRegistry is IAgentRegistry, Ownable {
         require(agent != address(0), "AgentRegistry: zero address");
         if (!_authorized[agent]) {
             _authorized[agent] = true;
+            _agentIndices[agent] = _agents.length;
             _agents.push(agent);
         }
         agentMetadata[agent] = metadata;
@@ -35,6 +38,16 @@ contract AgentRegistry is IAgentRegistry, Ownable {
 
     function revokeAgent(address agent) external override onlyOwner {
         require(_authorized[agent], "AgentRegistry: not authorized");
+        uint256 index = _agentIndices[agent];
+        uint256 lastIndex = _agents.length - 1;
+        if (index != lastIndex) {
+            address lastAgent = _agents[lastIndex];
+            _agents[index] = lastAgent;
+            _agentIndices[lastAgent] = index;
+        }
+        _agents.pop();
+        delete _agentIndices[agent];
+        delete agentMetadata[agent];
         _authorized[agent] = false;
         emit AgentRevoked(agent);
     }

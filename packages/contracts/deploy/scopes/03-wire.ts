@@ -101,22 +101,28 @@ export const runWireScope: ScopeFn = async (
     console.log(`  Protocol.setAgentRegistry -> ${agentRegistry}`);
   }
 
-  // Authorize deployer in AgentRegistry if not already authorized
-  const isDeployerAuthorized = await publicClient.readContract({
-    address: agentRegistry,
-    abi: agentRegistryAbi,
-    functionName: "isAuthorizedAgent",
-    args: [config.deployer]
-  });
-  if (!isDeployerAuthorized) {
-    const regHash = await walletClient.writeContract({
+  const agentsToAuthorize: Array<{ address: Address; metadata: string }> = [
+    { address: config.deployer, metadata: "Default Sentinel EOA" },
+    { address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as Address, metadata: "Harbinger Detective Agent" }
+  ];
+
+  for (const agent of agentsToAuthorize) {
+    const isAuthorized = await publicClient.readContract({
       address: agentRegistry,
       abi: agentRegistryAbi,
-      functionName: "registerAgent",
-      args: [config.deployer, "Default Sentinel EOA"]
+      functionName: "isAuthorizedAgent",
+      args: [agent.address]
     });
-    await publicClient.waitForTransactionReceipt({ hash: regHash });
-    console.log(`  AgentRegistry.registerAgent -> ${config.deployer} (Default Sentinel EOA)`);
+    if (!isAuthorized) {
+      const regHash = await walletClient.writeContract({
+        address: agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "registerAgent",
+        args: [agent.address, agent.metadata]
+      });
+      await publicClient.waitForTransactionReceipt({ hash: regHash });
+      console.log(`  AgentRegistry.registerAgent -> ${agent.address} (${agent.metadata})`);
+    }
   }
 
   // 5. Deploy VaultDriver

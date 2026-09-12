@@ -133,10 +133,6 @@ export function projectShares(
     const { board, position, atMs, resolvedAtMs } = inputOrPool;
     const baseAccrued = position.sharesAccrued ?? 0n;
 
-    if (position.depleted || position.rate === 0n || board.sideRate === 0n) {
-      return (baseAccrued + position.rate * (board.g - position.gPaid)) / WAD;
-    }
-
     const lastAdvanceMs = toMs(board.lastAdvanceMs) ?? 0;
     const atMsNorm = toMs(atMs) ?? 0;
     const maxEndMsNorm = toMs(position.maxEndMs);
@@ -148,11 +144,15 @@ export function projectShares(
       resolvedAtMsNorm ?? atMsNorm
     );
 
-    if (freezeMs <= lastAdvanceMs) {
+    if (freezeMs <= lastAdvanceMs || position.rate === 0n || board.sideRate === 0n) {
       return (baseAccrued + position.rate * (board.g - position.gPaid)) / WAD;
     }
 
     const dtSeconds = BigInt(Math.floor((freezeMs - lastAdvanceMs) / 1000));
+    if (dtSeconds <= 0n) {
+      return (baseAccrued + position.rate * (board.g - position.gPaid)) / WAD;
+    }
+
     const { dG } = segMath({ pool: board.pool, sideRate: board.sideRate, dt: dtSeconds });
     const gNow = board.g + dG;
 
@@ -181,23 +181,4 @@ export function projectShares(
 
   const { dG } = segMath({ pool, sideRate, dt });
   return sharesFromG(userRate, dG, 0n);
-}
-
-/**
- * Legacy helper calculating shares for an instant deposit.
- */
-export function calculateSharesForDeposit(
-  currentSupply: bigint,
-  depositAmount: bigint,
-  basePriceWad: bigint = WAD / 100n
-): bigint {
-  if (depositAmount === 0n) return 0n;
-
-  const supplyBefore = currentSupply + WAD;
-  const priceBefore = basePriceWad + (lnWad(supplyBefore) * basePriceWad) / WAD;
-
-  if (priceBefore <= 0n) return (depositAmount * WAD) / basePriceWad;
-
-  const estimatedShares = (depositAmount * WAD) / priceBefore;
-  return estimatedShares > 0n ? estimatedShares : 1n;
 }

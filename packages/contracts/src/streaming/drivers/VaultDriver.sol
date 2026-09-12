@@ -87,9 +87,8 @@ contract VaultDriver is SharedDriverUtils {
         address creator = _msgSender();
 
         address reg = protocol.agentRegistry();
-        if (reg != address(0)) {
-            require(IAgentRegistry(reg).isAuthorizedAgent(creator), "VaultDriver: not authorized agent");
-        }
+        require(reg != address(0), "VaultDriver: registry not set");
+        require(IAgentRegistry(reg).isAuthorizedAgent(creator), "VaultDriver: not authorized agent");
 
         Vault vault = Vault(protocol.vault());
 
@@ -149,7 +148,7 @@ contract VaultDriver is SharedDriverUtils {
 
     /// @notice The Drips sender account for a creator's seed on `vaultId` (distinct from MarketDriver NFT accounts).
     function seedAccount(address creator, bytes32 vaultId) public view returns (uint256 account) {
-        uint128 tag = uint128(uint256(keccak256(abi.encodePacked("livestreak.seed", creator, vaultId))));
+        uint128 tag = uint128(uint256(keccak256(abi.encodePacked("oases.seed", creator, vaultId))));
         return (uint256(driverId) << 224) | SEED_ACCOUNT_BIT | uint256(tag);
     }
 

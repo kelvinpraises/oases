@@ -198,5 +198,51 @@ describe("curve TS parity", () => {
     const totalProjected = projectShares(activeWithBanked);
     assert.ok(totalProjected > 50_000_000n, "Total projected shares must exceed banked shares");
   });
+
+  it("projectShares continuously projects up to maxEndMs when stream depleted before on-chain advance", () => {
+    // Funder streams at 2 USDC/sec (2_000_000n).
+    // Board advanced at t = 1,000s. Funder deposit exhausts at maxEnd = 1,020s (20s duration).
+    // At current time t = 1,050s, position is flagged depleted on-chain/client, but on-chain advance hasn't occurred.
+    const inputDepletedAtFuture = {
+      board: {
+        pool: 5_000_000_000n,
+        sideRate: 2_000_000n,
+        g: 0n,
+        lastAdvanceMs: 1_000_000,
+      },
+      position: {
+        rate: 2_000_000n,
+        gPaid: 0n,
+        sharesAccrued: 0n,
+        maxEndMs: 1_020_000, // 20s after last advance
+        depleted: true, // flagged depleted
+      },
+      atMs: 1_050_000, // current time is 50s after last advance
+    };
+
+    // Exactly at maxEndMs (20s)
+    const inputAtMaxEnd = {
+      ...inputDepletedAtFuture,
+      atMs: 1_020_000,
+    };
+
+    const sharesAt50s = projectShares(inputDepletedAtFuture);
+    const sharesAt20s = projectShares(inputAtMaxEnd);
+
+    // Shares must project exactly for the 20 active seconds, and freeze without accruing further between 20s and 50s
+    assert.ok(sharesAt20s > 0n, "Shares must accrue for active stream interval");
+    assert.equal(sharesAt50s, sharesAt20s, "Accrual must freeze at maxEndMs when stream is depleted");
+
+    // If freezeMs <= lastAdvanceMs, returns banked shares immediately
+    const inputPastAdvance = {
+      ...inputDepletedAtFuture,
+      board: {
+        ...inputDepletedAtFuture.board,
+        lastAdvanceMs: 1_025_000, // on-chain advance already passed maxEnd
+      },
+    };
+    const sharesPast = projectShares(inputPastAdvance);
+    assert.equal(sharesPast, 0n, "Must return banked shares when freezeMs <= lastAdvanceMs");
+  });
 });
 

@@ -20,6 +20,7 @@
       "contracts": {
         "protocol": "0x26651d6f9bd41c568683fa1cb863f6d9ff7fee4d",
         "marketRegistry": "0x996b7079f172c99c67e999c011e993f66e9fdf4b",
+        "agentRegistry": "0x7c47b3fa2a7b1822d55f9ce3dede459a71471761",
         "vault": "0x8192ecd8a07c3e881dd6851e2cf39a380420783d",
         "mockUsdc": "0x5d33e40f2285dbe357e2d9ed51e89d070b89bcab"
       }

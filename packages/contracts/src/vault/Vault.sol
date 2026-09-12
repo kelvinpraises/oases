@@ -141,6 +141,7 @@ contract Vault {
         string calldata solverConfig_,
         address creator
     ) external returns (bytes32 vaultId) {
+        require(msg.sender == protocol.vaultDriver(), "Vault: not vault driver");
         require(creator != address(0), "Vault: zero creator");
         require(bytes(question).length > 0, "Vault: empty question");
         require(bytes(solverConfig_).length > 0, "Vault: empty solver config");
@@ -324,12 +325,19 @@ contract Vault {
 
         uint256 perVaultAmount = amount / activeCount;
         require(perVaultAmount > 0, "Vault: amount too small for active vaults");
+        uint256 remainder = amount % activeCount;
+        bool isFirst = true;
 
         for (uint256 i = 0; i < totalChildren; i++) {
             bytes32 vId = childVaults[i];
             if (vaults[vId].status != Status.Resolved) {
-                yieldPot[vId] += perVaultAmount;
-                emit YieldInjected(vId, msg.sender, perVaultAmount);
+                uint256 vaultShare = perVaultAmount;
+                if (isFirst && remainder > 0) {
+                    vaultShare += remainder;
+                    isFirst = false;
+                }
+                yieldPot[vId] += vaultShare;
+                emit YieldInjected(vId, msg.sender, vaultShare);
             }
         }
 

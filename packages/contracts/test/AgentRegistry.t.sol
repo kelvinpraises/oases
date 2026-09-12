@@ -105,4 +105,67 @@ contract AgentRegistryTest is Test {
         assertFalse(registry.isAuthorizedAgent(agent1));
         assertFalse(registry.isAuthorizedAgent(address(0)));
     }
+
+    function testConstructorZeroOwnerReverts() public {
+        vm.expectRevert("AgentRegistry: zero owner");
+        new AgentRegistry(address(0));
+    }
+
+    function testSwapAndPopIndexAccuracy() public {
+        address agent3 = address(0x3333);
+        registry.registerAgent(agent1, "meta-1");
+        registry.registerAgent(agent2, "meta-2");
+        registry.registerAgent(agent3, "meta-3");
+        assertEq(registry.agentCount(), 3);
+
+        // Revoke middle agent (agent2)
+        registry.revokeAgent(agent2);
+        assertEq(registry.agentCount(), 2);
+        assertFalse(registry.isAuthorizedAgent(agent2));
+        assertEq(registry.agentMetadata(agent2), "");
+
+        address[] memory agentsAfterMiddle = registry.getAgents();
+        assertEq(agentsAfterMiddle.length, 2);
+        assertEq(agentsAfterMiddle[0], agent1);
+        assertEq(agentsAfterMiddle[1], agent3);
+
+        // Revoke first agent (agent1)
+        registry.revokeAgent(agent1);
+        assertEq(registry.agentCount(), 1);
+        assertFalse(registry.isAuthorizedAgent(agent1));
+        address[] memory agentsAfterFirst = registry.getAgents();
+        assertEq(agentsAfterFirst.length, 1);
+        assertEq(agentsAfterFirst[0], agent3);
+
+        // Revoke last remaining agent (agent3)
+        registry.revokeAgent(agent3);
+        assertEq(registry.agentCount(), 0);
+        assertFalse(registry.isAuthorizedAgent(agent3));
+        assertEq(registry.getAgents().length, 0);
+    }
+
+    function testRevokeSingleAgentCleansUp() public {
+        registry.registerAgent(agent1, "meta-1");
+        assertEq(registry.agentCount(), 1);
+
+        registry.revokeAgent(agent1);
+        assertEq(registry.agentCount(), 0);
+        assertFalse(registry.isAuthorizedAgent(agent1));
+        assertEq(registry.agentMetadata(agent1), "");
+        assertEq(registry.getAgents().length, 0);
+    }
+
+    function testReRegisterAfterRevocation() public {
+        registry.registerAgent(agent1, "initial-meta");
+        registry.revokeAgent(agent1);
+        assertFalse(registry.isAuthorizedAgent(agent1));
+
+        registry.registerAgent(agent1, "re-registered-meta");
+        assertTrue(registry.isAuthorizedAgent(agent1));
+        assertEq(registry.agentMetadata(agent1), "re-registered-meta");
+        assertEq(registry.agentCount(), 1);
+        address[] memory agents = registry.getAgents();
+        assertEq(agents.length, 1);
+        assertEq(agents[0], agent1);
+    }
 }

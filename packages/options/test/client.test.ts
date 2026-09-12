@@ -282,9 +282,9 @@ describe("OptionsReader", () => {
     assert.equal(meta, '{"name":"Sentinel Agent"}');
   });
 
-  it("throws when reading agent if agentRegistry address is missing", async () => {
+  it("returns false silently when agentRegistry address is missing or zero address", async () => {
     const mockPublic = {} as PublicClient;
-    const reader = createOptionsReader({
+    const readerUndefined = createOptionsReader({
       publicClient: mockPublic,
       addresses: {
         marketRegistry: MOCK_ADDRESSES.marketRegistry,
@@ -295,8 +295,26 @@ describe("OptionsReader", () => {
       }
     });
 
+    const isAuthUndefined = await readerUndefined.readAgentAuthorization(TEST_ACCOUNT.address);
+    assert.equal(isAuthUndefined, false);
+
+    const readerZero = createOptionsReader({
+      publicClient: mockPublic,
+      addresses: {
+        marketRegistry: MOCK_ADDRESSES.marketRegistry,
+        vault: MOCK_ADDRESSES.vault,
+        marketDriver: MOCK_ADDRESSES.marketDriver,
+        mockUsdc: MOCK_ADDRESSES.mockUsdc,
+        agentRegistry: "0x0000000000000000000000000000000000000000" as Address
+      }
+    });
+
+    const isAuthZero = await readerZero.readAgentAuthorization(TEST_ACCOUNT.address);
+    assert.equal(isAuthZero, false);
+
+    // Metadata reading still requires agentRegistry to be configured
     await assert.rejects(
-      () => reader.readAgentAuthorization(TEST_ACCOUNT.address),
+      () => readerUndefined.readAgentMetadata(TEST_ACCOUNT.address),
       /agentRegistry address is not configured/
     );
   });

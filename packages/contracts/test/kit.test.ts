@@ -18,13 +18,13 @@ const EXPECTED_CONTRACTS: readonly EvmContract[] = [
   "caller",
   "marketDriver",
   "vaultDriver",
-  "mockUsdc"
+  "mockUsdc",
+  "agentRegistry"
 ];
 
 describe("Typed Contract Kit", () => {
   it("exports ABIs for all expected EVM contracts including agentRegistry", () => {
-    const allContracts: readonly EvmContract[] = [...EXPECTED_CONTRACTS, "agentRegistry"];
-    for (const name of allContracts) {
+    for (const name of EXPECTED_CONTRACTS) {
       assert.ok(evmAbis[name], `Missing ABI for ${name}`);
       assert.ok(Array.isArray(evmAbis[name]), `ABI for ${name} should be an array`);
       assert.ok(evmAbis[name].length > 0, `ABI for ${name} should not be empty`);
@@ -32,7 +32,7 @@ describe("Typed Contract Kit", () => {
     assert.equal(abis, evmAbis);
   });
 
-  it("exports static deployment addresses for localhost with all 8 contracts", () => {
+  it("exports static deployment addresses for localhost with all 9 contracts", () => {
     const local = staticAddresses.localhost;
     assert.ok(local, "Missing static localhost addresses");
     for (const name of EXPECTED_CONTRACTS) {

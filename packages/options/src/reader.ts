@@ -63,8 +63,14 @@ function resolveAddresses(config: OptionsReaderConfig): OptionsAddresses {
   const vault = config.addresses?.vault ?? defaults?.vault;
   const marketDriver = config.addresses?.marketDriver ?? defaults?.marketDriver;
   const mockUsdc = config.addresses?.mockUsdc ?? defaults?.mockUsdc;
-  const agentRegistry = config.addresses?.agentRegistry ?? defaults?.agentRegistry;
-  const vaultDriver = config.addresses?.vaultDriver ?? defaults?.vaultDriver;
+  const agentRegistry =
+    config.addresses && "agentRegistry" in config.addresses
+      ? config.addresses.agentRegistry
+      : defaults?.agentRegistry;
+  const vaultDriver =
+    config.addresses && "vaultDriver" in config.addresses
+      ? config.addresses.vaultDriver
+      : defaults?.vaultDriver;
 
   if (!marketRegistry || !vault || !marketDriver || !mockUsdc) {
     throw new Error(`OptionsReader: Missing required contract addresses for '${deployment}'`);
@@ -448,19 +454,23 @@ export function createOptionsReader(config: OptionsReaderConfig): OptionsReader 
     },
 
     async readAgentAuthorization(agent: Address): Promise<boolean> {
-      if (!addresses.agentRegistry) {
-        throw new Error("OptionsReader: agentRegistry address is not configured");
+      if (!addresses.agentRegistry || addresses.agentRegistry === "0x0000000000000000000000000000000000000000") {
+        return false;
       }
-      return await publicClient.readContract({
-        address: addresses.agentRegistry,
-        abi: agentRegistryAbi,
-        functionName: "isAuthorizedAgent",
-        args: [agent]
-      });
+      try {
+        return await publicClient.readContract({
+          address: addresses.agentRegistry,
+          abi: agentRegistryAbi,
+          functionName: "isAuthorizedAgent",
+          args: [agent]
+        });
+      } catch {
+        return false;
+      }
     },
 
     async readAgentMetadata(agent: Address): Promise<string> {
-      if (!addresses.agentRegistry) {
+      if (!addresses.agentRegistry || addresses.agentRegistry === "0x0000000000000000000000000000000000000000") {
         throw new Error("OptionsReader: agentRegistry address is not configured");
       }
       return await publicClient.readContract({
