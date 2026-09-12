@@ -15,7 +15,7 @@ export function loadNeuralConfig(overrides?: Partial<NeuralConfig>): NeuralConfi
   return NeuralConfigSchema.parse({
     modelName: process.env.HARBINGER_MODEL_NAME ?? "gpt-4o",
     provider: process.env.HARBINGER_MODEL_PROVIDER ?? "openai",
-    apiKey: process.env.HARBINGER_MODEL_API_KEY,
+    apiKey: process.env.HARBINGER_MODEL_API_KEY ?? process.env.OPENAI_API_KEY,
     apiBaseUrl: process.env.HARBINGER_MODEL_BASE_URL,
     ...overrides,
   });

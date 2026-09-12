@@ -29,6 +29,7 @@ import {
 // Minimal ABI for Vault.sol resolution inspection and execution
 export const VAULT_ABI = parseAbi([
   "function resolve(bytes32 vaultId, uint8 outcome) external",
+  "function injectMarketYield(bytes32 marketId, uint256 amount) external",
   "function vaults(bytes32 vaultId) external view returns (bytes32 id, bytes32 marketId, string question, string solverConfig, address creator, uint8 status, uint8 outcome, uint32 resolvedAt, bool exists)",
 ]);
 
@@ -301,6 +302,53 @@ export class ChainClientService {
       }
 
       return result;
+    });
+  }
+
+  public async injectMarketYield(
+    marketId: string,
+    amount: bigint,
+    vaultAddress?: Address,
+  ): Promise<Hash> {
+    return this.executeSerializedTx(async () => {
+      const targetVault = vaultAddress ?? (this.config.vaultAddress as Address);
+      if (!targetVault) {
+        throw new Error("Vault address not configured for injectMarketYield");
+      }
+      if (!this.walletClient || !this.account) {
+        throw new Error("Wallet client not configured for on-chain execution");
+      }
+
+      await this.assertSufficientGasBalance();
+      const formattedMarketId = formatBytes32(marketId);
+
+      const txHash = await this.walletClient.writeContract({
+        account: this.account,
+        address: targetVault,
+        abi: VAULT_ABI,
+        functionName: "injectMarketYield",
+        args: [formattedMarketId, amount],
+        chain: null,
+      });
+
+      await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      if (this.journalService) {
+        await this.journalService.recordThought({
+          level: "INFO",
+          type: "YIELD_INJECTION",
+          source: "yield_splitter",
+          thought: `Injected ${amount.toString()} base units yield into market ${marketId}. TxHash: ${txHash}.`,
+          confidenceScore: 1.0,
+          metadata: {
+            marketId,
+            amount: amount.toString(),
+            txHash,
+          },
+        });
+      }
+
+      return txHash;
     });
   }
 

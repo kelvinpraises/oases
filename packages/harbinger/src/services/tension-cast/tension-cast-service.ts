@@ -14,9 +14,9 @@ import type {
   VaultGenesisResult,
 } from "./types";
 
-// Nominal seed constants: $10 YES and $10 NO = $20 nominal per vault (10e18 Wad)
-export const NOMINAL_SEED_PER_SIDE = 10n * 10n ** 18n; // 10 WAD
-export const TOTAL_NOMINAL_PER_VAULT = NOMINAL_SEED_PER_SIDE * 2n; // 20 WAD
+// Nominal seed constants: $10 YES and $10 NO = $20 nominal per vault (6 decimals, USDC)
+export const NOMINAL_SEED_PER_SIDE = 10n * 10n ** 6n; // 10 USDC (10_000_000 units)
+export const TOTAL_NOMINAL_PER_VAULT = NOMINAL_SEED_PER_SIDE * 2n; // 20 USDC (20_000_000 units)
 
 export class TensionCastService {
   constructor(

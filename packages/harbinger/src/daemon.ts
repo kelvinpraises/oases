@@ -22,9 +22,13 @@ import { JournalService } from "@/services/journal/journal-service";
 import { createNeuralAgent } from "@/interfaces/neural/index";
 import { WebSocketStreamServer } from "@/interfaces/ws/server";
 import type { ReplayTicket } from "@/models/ReplayTicket";
+import { loadAgentManifest, getActiveAgent, type AgentConfig } from "@/config/agent-manifest";
+import { HcsMirrorNodeSubscriber } from "@/services/hedera/hcs-subscriber";
+import { YieldSplitter } from "@/services/hedera/yield-splitter";
 
 export interface HarbingerHarness {
   config: HarbingerConfig;
+  agentConfig?: AgentConfig;
   db: Kysely<HarbingerDB>;
   graphClient: GraphClient;
   chainClient: ChainClientService;
@@ -35,6 +39,8 @@ export interface HarbingerHarness {
   wsServer: WebSocketStreamServer;
   scheduler: CronScheduler;
   runner: LoopRunner;
+  hcsSubscriber?: HcsMirrorNodeSubscriber;
+  yieldSplitter?: YieldSplitter;
   isReady: boolean;
   stop: () => Promise<void>;
 }
@@ -101,6 +107,7 @@ function setupSignalTraps(): void {
 export async function bootHarbingerDaemon(
   configOverrides: Partial<HarbingerConfig> = {},
   httpServer?: Server,
+  agentId?: string,
 ): Promise<HarbingerHarness> {
   if (activeHarness && activeHarness.isReady) {
     return activeHarness;
@@ -108,6 +115,15 @@ export async function bootHarbingerDaemon(
 
   // 1. Config Validation (Zod)
   const config = loadConfig(configOverrides);
+
+  // Load Agent Manifest if present
+  let agentConfig: AgentConfig | undefined;
+  try {
+    const manifest = loadAgentManifest();
+    agentConfig = getActiveAgent(manifest, agentId);
+  } catch {
+    // Optional in standalone test harnesses
+  }
 
   // 2. Database Initialization (SQLite WAL mode via Kysely)
   const db = getDatabase(config.dbPath);
@@ -120,6 +136,7 @@ export async function bootHarbingerDaemon(
     marketRegistry: config.marketRegistryAddress,
     vaultDriver: config.vaultDriverAddress,
   });
+  const yieldSplitter = new YieldSplitter(chainClient, journalService);
 
   // 4. Instantiate LoopRunner & Wire Settlement Bridge Callback
   const runner = new LoopRunner(
@@ -217,8 +234,20 @@ export async function bootHarbingerDaemon(
     },
   });
 
+  let hcsSubscriber: HcsMirrorNodeSubscriber | undefined;
+  const topicId = agentConfig?.hcsInboxTopicId ?? process.env.HARBINGER_HCS_TOPIC_ID;
+  if (topicId) {
+    hcsSubscriber = new HcsMirrorNodeSubscriber(topicId);
+    hcsSubscriber.startPolling(async (pitchMsg) => {
+      if (pitchMsg.payload?.marketId) {
+        await yieldSplitter.processPitchYield(pitchMsg.payload.marketId);
+      }
+    });
+  }
+
   activeHarness = {
     config,
+    agentConfig,
     db,
     graphClient,
     chainClient,
@@ -229,6 +258,8 @@ export async function bootHarbingerDaemon(
     wsServer,
     scheduler: cronScheduler,
     runner,
+    hcsSubscriber,
+    yieldSplitter,
     isReady: true,
     stop: shutdownHarbingerDaemon,
   };
@@ -241,6 +272,10 @@ export async function shutdownHarbingerDaemon(): Promise<void> {
 
   const harness = activeHarness;
   activeHarness = null;
+
+  if (harness.hcsSubscriber) {
+    harness.hcsSubscriber.stopPolling();
+  }
 
   // 1. Clear macro timer and all scheduler intervals
   if (macroScanTimer) {

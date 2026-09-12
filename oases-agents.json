@@ -1,0 +1,15 @@
+{
+  "agents": [
+    {
+      "id": "harbinger-sentinel-01",
+      "name": "Harbinger Alpha Sovereign",
+      "role": "Contagion Sentinel",
+      "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "privateKeyEnv": "HARBINGER_PRIVATE_KEY",
+      "hcsInboxTopicId": "0.0.543210",
+      "hcsRegistryTopicId": "0.0.123456",
+      "driver": "mcp",
+      "activeDirectives": ["directive-crv-cascade"]
+    }
+  ]
+}

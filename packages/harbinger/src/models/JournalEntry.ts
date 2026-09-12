@@ -8,6 +8,7 @@ export type JournalEntryType =
   | "CLUSTER_SYNTHESIS"
   | "CADENCE_DECISION"
   | "RESOLUTION_VERDICT"
+  | "YIELD_INJECTION"
   | "SYSTEM_LIFECYCLE";
 
 export interface JournalEntry {

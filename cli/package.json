@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@oases/harbinger": "*",
-    "@oases/lake": "*",
     "@oases/options": "*",
     "commander": "^13.1.0"
   }

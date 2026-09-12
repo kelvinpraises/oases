@@ -117,7 +117,16 @@ describe("Neural Cognitive Interface & Detective Agent", () => {
   });
 
   it("executes qualitative analysis cycle and commits thought to journal", async () => {
-    const neuralAgent = createNeuralAgent(journal, loopService);
+    const testAgent = new DetectiveAgent(
+      "detectiveAgent",
+      "Deterministic test detective",
+      async () => ({
+        thought: "Investigated contagion arcs across cluster. Physical correlation tolerances verified: all monitored vaults are operating within expected risk bounds.",
+        cadenceAdjusted: false,
+        toolCallsExecuted: ["evaluateMetric"],
+      }),
+    );
+    const neuralAgent = createNeuralAgent(journal, loopService, undefined, testAgent);
 
     await neuralAgent.runAnalysis(mockContext);
 

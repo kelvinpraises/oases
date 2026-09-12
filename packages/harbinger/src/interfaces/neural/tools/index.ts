@@ -22,6 +22,7 @@ export * from "./journal/index";
 export * from "./orchestration/index";
 export * from "./observation/index";
 export * from "./resolution/index";
+export * from "./faucet/index";
 
 export function createNeuralTools(services: {
   journalService: JournalService;

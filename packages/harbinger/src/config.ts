@@ -19,6 +19,10 @@ export const HarbingerConfigSchema = z.object({
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid EVM address")
     .optional(),
+  vaultAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid EVM address")
+    .optional(),
   dbPath: z.string().default(".data/harbinger.db"),
   wsPort: z.coerce.number().default(4001),
   macroCadenceMs: z.coerce.number().optional(),
@@ -37,6 +41,7 @@ export function loadConfig(
   if (process.env.HARBINGER_PRIVATE_KEY !== undefined) envConfig.operatorPrivateKey = process.env.HARBINGER_PRIVATE_KEY;
   if (process.env.HARBINGER_MARKET_REGISTRY !== undefined) envConfig.marketRegistryAddress = process.env.HARBINGER_MARKET_REGISTRY;
   if (process.env.HARBINGER_VAULT_DRIVER !== undefined) envConfig.vaultDriverAddress = process.env.HARBINGER_VAULT_DRIVER;
+  if (process.env.HARBINGER_VAULT !== undefined) envConfig.vaultAddress = process.env.HARBINGER_VAULT;
   if (process.env.HARBINGER_DB_PATH !== undefined) envConfig.dbPath = process.env.HARBINGER_DB_PATH;
   if (process.env.HARBINGER_WS_PORT !== undefined) envConfig.wsPort = process.env.HARBINGER_WS_PORT;
   if (process.env.HARBINGER_MACRO_CADENCE_MS !== undefined) envConfig.macroCadenceMs = process.env.HARBINGER_MACRO_CADENCE_MS;
@@ -47,3 +52,5 @@ export function loadConfig(
     ...overrides,
   });
 }
+
+export * from "./config/agent-manifest";

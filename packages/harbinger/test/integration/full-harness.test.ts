@@ -85,7 +85,7 @@ describe("Flow 6 — Master Harbinger Integration Test Suite", () => {
     const genesisResult =
       await harness.tensionCastService.primeTensionCast(directive);
     assert.equal(genesisResult.primedVaults.length, 4);
-    assert.equal(genesisResult.totalSeedCapital, 80n * 10n ** 18n); // 4 * $20 Wad = 80 Wad
+    assert.equal(genesisResult.totalSeedCapital, 80n * 10n ** 6n); // 4 * $20 USDC = 80 USDC (80_000_000 units)
 
     const activeJobs = await harness.loopService.listJobs();
     assert.equal(activeJobs.length, 4);
