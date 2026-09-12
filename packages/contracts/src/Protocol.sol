@@ -9,7 +9,7 @@ contract Protocol is Ownable {
     address public dripsStreaming;
     address public marketDriver;
     address public vaultDriver;
-    address public stewardRegistry;
+    address public agentRegistry;
     address public treasury;
 
     event MarketRegistrySet(address indexed marketRegistry);
@@ -17,7 +17,7 @@ contract Protocol is Ownable {
     event DripsStreamingSet(address indexed dripsStreaming);
     event MarketDriverSet(address indexed marketDriver);
     event VaultDriverSet(address indexed vaultDriver);
-    event StewardRegistrySet(address indexed stewardRegistry);
+    event AgentRegistrySet(address indexed agentRegistry);
     event TreasurySet(address indexed treasury);
 
     constructor(address initialOwner) {
@@ -54,10 +54,10 @@ contract Protocol is Ownable {
         emit VaultDriverSet(addr);
     }
 
-    function setStewardRegistry(address addr) external onlyOwner {
-        _setOnce(stewardRegistry, addr);
-        stewardRegistry = addr;
-        emit StewardRegistrySet(addr);
+    function setAgentRegistry(address addr) external onlyOwner {
+        _setOnce(agentRegistry, addr);
+        agentRegistry = addr;
+        emit AgentRegistrySet(addr);
     }
 
     function setTreasury(address addr) external onlyOwner {

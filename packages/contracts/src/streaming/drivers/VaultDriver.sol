@@ -14,6 +14,10 @@ interface IMarketRegistry {
     function addVault(bytes32 marketId, bytes32 vaultId) external;
 }
 
+interface IAgentRegistry {
+    function isAuthorizedAgent(address agent) external view returns (bool);
+}
+
 /// @notice Receiver-side Drips adapter + permissionless vault creation with a bonded directional seed.
 contract VaultDriver is SharedDriverUtils {
     uint256 internal constant SEED_ACCOUNT_BIT = 1 << 127;
@@ -81,6 +85,12 @@ contract VaultDriver is SharedDriverUtils {
         require(bytes(solverConfig).length > 0, "VaultDriver: empty solver config");
 
         address creator = _msgSender();
+
+        address reg = protocol.agentRegistry();
+        if (reg != address(0)) {
+            require(IAgentRegistry(reg).isAuthorizedAgent(creator), "VaultDriver: not authorized agent");
+        }
+
         Vault vault = Vault(protocol.vault());
 
         vaultId = vault.createVault(marketId, question, solverConfig, creator);

@@ -5,6 +5,7 @@ import {
   zeroAddress
 } from "viem";
 import {
+  agentRegistryAbi,
   marketRegistryAbi,
   vaultAbi,
   marketDriverAbi,
@@ -27,6 +28,8 @@ export interface OptionsAddresses {
   readonly vault: Address;
   readonly marketDriver: Address;
   readonly mockUsdc: Address;
+  readonly agentRegistry?: Address;
+  readonly vaultDriver?: Address;
 }
 
 export interface OptionsReaderConfig {
@@ -49,6 +52,8 @@ export interface OptionsReader {
   readNftLanes(tokenId: bigint): Promise<readonly LaneRecord[]>;
   readUsdcBalance(owner: Address): Promise<bigint>;
   readUsdcAllowance(owner: Address, spender: Address): Promise<bigint>;
+  readAgentAuthorization(agent: Address): Promise<boolean>;
+  readAgentMetadata(agent: Address): Promise<string>;
 }
 
 function resolveAddresses(config: OptionsReaderConfig): OptionsAddresses {
@@ -58,12 +63,14 @@ function resolveAddresses(config: OptionsReaderConfig): OptionsAddresses {
   const vault = config.addresses?.vault ?? defaults?.vault;
   const marketDriver = config.addresses?.marketDriver ?? defaults?.marketDriver;
   const mockUsdc = config.addresses?.mockUsdc ?? defaults?.mockUsdc;
+  const agentRegistry = config.addresses?.agentRegistry ?? defaults?.agentRegistry;
+  const vaultDriver = config.addresses?.vaultDriver ?? defaults?.vaultDriver;
 
   if (!marketRegistry || !vault || !marketDriver || !mockUsdc) {
     throw new Error(`OptionsReader: Missing required contract addresses for '${deployment}'`);
   }
 
-  return { marketRegistry, vault, marketDriver, mockUsdc };
+  return { marketRegistry, vault, marketDriver, mockUsdc, agentRegistry, vaultDriver };
 }
 
 function toSideNumber(side: ConvictionSide | number): number {
@@ -437,6 +444,30 @@ export function createOptionsReader(config: OptionsReaderConfig): OptionsReader 
         abi: mockUsdcAbi,
         functionName: "allowance",
         args: [owner, spender]
+      });
+    },
+
+    async readAgentAuthorization(agent: Address): Promise<boolean> {
+      if (!addresses.agentRegistry) {
+        throw new Error("OptionsReader: agentRegistry address is not configured");
+      }
+      return await publicClient.readContract({
+        address: addresses.agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "isAuthorizedAgent",
+        args: [agent]
+      });
+    },
+
+    async readAgentMetadata(agent: Address): Promise<string> {
+      if (!addresses.agentRegistry) {
+        throw new Error("OptionsReader: agentRegistry address is not configured");
+      }
+      return await publicClient.readContract({
+        address: addresses.agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "agentMetadata",
+        args: [agent]
       });
     }
   };

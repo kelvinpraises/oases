@@ -1,4 +1,5 @@
 import {
+  agentRegistryAbi,
   callerAbi,
   dripsStreamingAbi,
   iDripsAbi,
@@ -17,6 +18,7 @@ const assertEvmAbiCoverage = <T extends { readonly [K in EvmContract]: unknown }
 export const evmAbis = assertEvmAbiCoverage({
   protocol: protocolAbi,
   marketRegistry: marketRegistryAbi,
+  agentRegistry: agentRegistryAbi,
   vault: vaultAbi,
   dripsStreaming: dripsStreamingAbi,
   caller: callerAbi,
@@ -26,6 +28,7 @@ export const evmAbis = assertEvmAbiCoverage({
 });
 
 export {
+  agentRegistryAbi,
   callerAbi,
   dripsStreamingAbi,
   iDripsAbi,

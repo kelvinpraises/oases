@@ -5,10 +5,14 @@ import {
   type Hex,
   type PublicClient,
   type WalletClient,
+  encodeAbiParameters,
   encodeEventTopics
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { marketDriverAbi } from "@oases/contracts";
+import {
+  marketDriverAbi,
+  vaultDriverAbi
+} from "@oases/contracts";
 import {
   createOptionsReader,
   createOptionsWriter,
@@ -23,7 +27,9 @@ const MOCK_ADDRESSES = {
   marketRegistry: "0x1111111111111111111111111111111111111111" as Address,
   vault: "0x2222222222222222222222222222222222222222" as Address,
   marketDriver: "0x3333333333333333333333333333333333333333" as Address,
-  mockUsdc: "0x4444444444444444444444444444444444444444" as Address
+  mockUsdc: "0x4444444444444444444444444444444444444444" as Address,
+  agentRegistry: "0x5555555555555555555555555555555555555555" as Address,
+  vaultDriver: "0x6666666666666666666666666666666666666666" as Address
 };
 
 const SAMPLE_MARKET_ID = ("0x" + "aa".repeat(32)) as Hex;
@@ -247,6 +253,53 @@ describe("OptionsReader", () => {
     const allowance = await reader.readUsdcAllowance(TEST_ACCOUNT.address, MOCK_ADDRESSES.marketDriver);
     assert.equal(allowance, 500_000_000n);
   });
+
+  it("reads agent authorization and metadata", async () => {
+    const mockPublic = {
+      readContract: async ({ functionName, args }: { functionName: string; args: unknown[] }) => {
+        if (functionName === "isAuthorizedAgent") {
+          return args[0] === TEST_ACCOUNT.address;
+        }
+        if (functionName === "agentMetadata") {
+          return '{"name":"Sentinel Agent"}';
+        }
+        throw new Error(`Unexpected function ${functionName}`);
+      }
+    } as unknown as PublicClient;
+
+    const reader = createOptionsReader({
+      publicClient: mockPublic,
+      addresses: MOCK_ADDRESSES
+    });
+
+    const isAuth = await reader.readAgentAuthorization(TEST_ACCOUNT.address);
+    assert.equal(isAuth, true);
+
+    const isOtherAuth = await reader.readAgentAuthorization("0x9999999999999999999999999999999999999999" as Address);
+    assert.equal(isOtherAuth, false);
+
+    const meta = await reader.readAgentMetadata(TEST_ACCOUNT.address);
+    assert.equal(meta, '{"name":"Sentinel Agent"}');
+  });
+
+  it("throws when reading agent if agentRegistry address is missing", async () => {
+    const mockPublic = {} as PublicClient;
+    const reader = createOptionsReader({
+      publicClient: mockPublic,
+      addresses: {
+        marketRegistry: MOCK_ADDRESSES.marketRegistry,
+        vault: MOCK_ADDRESSES.vault,
+        marketDriver: MOCK_ADDRESSES.marketDriver,
+        mockUsdc: MOCK_ADDRESSES.mockUsdc,
+        agentRegistry: undefined
+      }
+    });
+
+    await assert.rejects(
+      () => reader.readAgentAuthorization(TEST_ACCOUNT.address),
+      /agentRegistry address is not configured/
+    );
+  });
 });
 
 describe("OptionsWriter", () => {
@@ -460,4 +513,111 @@ describe("OptionsWriter", () => {
     assert.equal(executed[5].fn, "advance");
     assert.equal(executed[6].fn, "approve");
   });
+
+  it("creates vault and decodes SeedOpened event from receipt", async () => {
+    const txHash = ("0x" + "88".repeat(32)) as Hex;
+    const expectedVaultId = ("0x" + "77".repeat(32)) as Hex;
+
+    const topics = encodeEventTopics({
+      abi: vaultDriverAbi,
+      eventName: "SeedOpened",
+      args: {
+        vaultId: expectedVaultId,
+        creator: TEST_ACCOUNT.address
+      }
+    });
+
+    const data = encodeAbiParameters(
+      [
+        { type: "uint8", name: "side" },
+        { type: "uint256", name: "rate" },
+        { type: "uint256", name: "deposit" },
+        { type: "uint32", name: "maxEnd" }
+      ],
+      [0, 1_000_000n, 50_000_000n, 1000]
+    );
+
+    const allowance = 50_000_000n;
+    const calls: Array<{ fn: string; args?: unknown[] }> = [];
+
+    const mockPublic = {
+      readContract: async () => allowance,
+      waitForTransactionReceipt: async () => ({
+        status: "success",
+        logs: [
+          {
+            address: MOCK_ADDRESSES.vaultDriver,
+            topics,
+            data
+          }
+        ]
+      })
+    } as unknown as PublicClient;
+
+    const mockWallet = {
+      account: TEST_ACCOUNT,
+      chain: undefined,
+      writeContract: async ({ functionName, args }: { functionName: string; args?: unknown[] }) => {
+        calls.push({ fn: functionName, args });
+        return txHash;
+      }
+    } as unknown as WalletClient;
+
+    const writer = createOptionsWriter({
+      walletClient: mockWallet,
+      publicClient: mockPublic,
+      addresses: MOCK_ADDRESSES
+    });
+
+    const result = await writer.createVault({
+      marketId: SAMPLE_MARKET_ID,
+      question: "Will ETH break 10k?",
+      solverConfig: "eyJzb2x2ZXIiOiJ0ZXN0In0=",
+      seedSide: ConvictionSide.YES,
+      rate: 1_000_000n,
+      deposit: 50_000_000n
+    });
+
+    assert.equal(result.txHash, txHash);
+    assert.equal(result.vaultId, expectedVaultId);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].fn, "createVault");
+  });
+
+  it("registers an agent in AgentRegistry", async () => {
+    const txHash = ("0x" + "66".repeat(32)) as Hex;
+    let writeCalled = false;
+
+    const mockPublic = {
+      waitForTransactionReceipt: async () => ({ status: "success" })
+    } as unknown as PublicClient;
+
+    const mockWallet = {
+      account: TEST_ACCOUNT,
+      chain: undefined,
+      writeContract: async ({ functionName, address, args }: { functionName: string; address: Address; args: unknown[] }) => {
+        writeCalled = true;
+        assert.equal(functionName, "registerAgent");
+        assert.equal(address, MOCK_ADDRESSES.agentRegistry);
+        assert.equal(args[0], TEST_ACCOUNT.address);
+        assert.equal(args[1], "Agent Config Metadata");
+        return txHash;
+      }
+    } as unknown as WalletClient;
+
+    const writer = createOptionsWriter({
+      walletClient: mockWallet,
+      publicClient: mockPublic,
+      addresses: MOCK_ADDRESSES
+    });
+
+    const hash = await writer.registerAgent({
+      agent: TEST_ACCOUNT.address,
+      metadata: "Agent Config Metadata"
+    });
+
+    assert.ok(writeCalled);
+    assert.equal(hash, txHash);
+  });
 });
+

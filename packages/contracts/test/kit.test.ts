@@ -22,8 +22,9 @@ const EXPECTED_CONTRACTS: readonly EvmContract[] = [
 ];
 
 describe("Typed Contract Kit", () => {
-  it("exports ABIs for all 8 expected EVM contracts", () => {
-    for (const name of EXPECTED_CONTRACTS) {
+  it("exports ABIs for all expected EVM contracts including agentRegistry", () => {
+    const allContracts: readonly EvmContract[] = [...EXPECTED_CONTRACTS, "agentRegistry"];
+    for (const name of allContracts) {
       assert.ok(evmAbis[name], `Missing ABI for ${name}`);
       assert.ok(Array.isArray(evmAbis[name]), `ABI for ${name} should be an array`);
       assert.ok(evmAbis[name].length > 0, `ABI for ${name} should not be empty`);

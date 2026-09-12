@@ -8,9 +8,11 @@ import {
   zeroAddress
 } from "viem";
 import {
+  agentRegistryAbi,
   marketDriverAbi,
   mockUsdcAbi,
   vaultAbi,
+  vaultDriverAbi,
   staticAddresses,
   type DeploymentName
 } from "@oases/contracts";
@@ -46,6 +48,15 @@ export interface OptionsWriter {
   withdrawBatch(input: { tokenId: bigint; vaultIds: readonly Hex[]; to?: Address }): Promise<Hex>;
   advance(input: { vaultId: Hex; side: ConvictionSide; maxSteps?: bigint }): Promise<Hex>;
   approveUsdc(input: { spender: Address; amount?: bigint }): Promise<Hex>;
+  createVault(input: {
+    marketId: Hex;
+    question: string;
+    solverConfig: string;
+    seedSide: ConvictionSide;
+    rate: bigint;
+    deposit: bigint;
+  }): Promise<{ txHash: Hex; vaultId: Hex }>;
+  registerAgent(input: { agent: Address; metadata: string }): Promise<Hex>;
 }
 
 function resolveAddresses(config: OptionsWriterConfig): OptionsAddresses {
@@ -55,12 +66,14 @@ function resolveAddresses(config: OptionsWriterConfig): OptionsAddresses {
   const vault = config.addresses?.vault ?? defaults?.vault;
   const marketDriver = config.addresses?.marketDriver ?? defaults?.marketDriver;
   const mockUsdc = config.addresses?.mockUsdc ?? defaults?.mockUsdc;
+  const agentRegistry = config.addresses?.agentRegistry ?? defaults?.agentRegistry;
+  const vaultDriver = config.addresses?.vaultDriver ?? defaults?.vaultDriver;
 
   if (!marketRegistry || !vault || !marketDriver || !mockUsdc) {
     throw new Error(`OptionsWriter: Missing required contract addresses for '${deployment}'`);
   }
 
-  return { marketRegistry, vault, marketDriver, mockUsdc };
+  return { marketRegistry, vault, marketDriver, mockUsdc, agentRegistry, vaultDriver };
 }
 
 function toSideNumber(side: ConvictionSide | number): number {
@@ -79,14 +92,14 @@ export function createOptionsWriter(config: OptionsWriterConfig): OptionsWriter 
     return account;
   };
 
-  const ensureAllowance = async (requiredAmount: bigint) => {
+  const ensureAllowance = async (spender: Address, requiredAmount: bigint) => {
     if (requiredAmount <= 0n) return;
     const account = getAccount();
     const currentAllowance = await publicClient.readContract({
       address: addresses.mockUsdc,
       abi: mockUsdcAbi,
       functionName: "allowance",
-      args: [account.address, addresses.marketDriver]
+      args: [account.address, spender]
     });
 
     if (currentAllowance < requiredAmount) {
@@ -96,7 +109,7 @@ export function createOptionsWriter(config: OptionsWriterConfig): OptionsWriter 
         address: addresses.mockUsdc,
         abi: mockUsdcAbi,
         functionName: "approve",
-        args: [addresses.marketDriver, maxUint256]
+        args: [spender, maxUint256]
       } as never);
       await publicClient.waitForTransactionReceipt({ hash: approveHash });
     }
@@ -168,7 +181,7 @@ export function createOptionsWriter(config: OptionsWriterConfig): OptionsWriter 
       deposit: bigint;
     }): Promise<Hex> {
       const account = getAccount();
-      await ensureAllowance(input.deposit);
+      await ensureAllowance(addresses.marketDriver, input.deposit);
 
       const sideNum = toSideNumber(input.side);
       const hash = await walletClient.writeContract({
@@ -191,7 +204,7 @@ export function createOptionsWriter(config: OptionsWriterConfig): OptionsWriter 
     }): Promise<Hex> {
       const account = getAccount();
       if (input.addDeposit > 0n) {
-        await ensureAllowance(input.addDeposit);
+        await ensureAllowance(addresses.marketDriver, input.addDeposit);
       }
 
       const desired = input.lanes.map((lane) => ({
@@ -321,6 +334,78 @@ export function createOptionsWriter(config: OptionsWriterConfig): OptionsWriter 
         abi: mockUsdcAbi,
         functionName: "approve",
         args: [input.spender, amount]
+      } as never);
+
+      await publicClient.waitForTransactionReceipt({ hash });
+      return hash;
+    },
+
+    async createVault(input: {
+      marketId: Hex;
+      question: string;
+      solverConfig: string;
+      seedSide: ConvictionSide;
+      rate: bigint;
+      deposit: bigint;
+    }): Promise<{ txHash: Hex; vaultId: Hex }> {
+      if (!addresses.vaultDriver) {
+        throw new Error("OptionsWriter: vaultDriver address is not configured");
+      }
+      const account = getAccount();
+      await ensureAllowance(addresses.vaultDriver, input.deposit);
+
+      const sideNum = toSideNumber(input.seedSide);
+      const txHash = await walletClient.writeContract({
+        account,
+        chain: walletClient.chain,
+        address: addresses.vaultDriver,
+        abi: vaultDriverAbi,
+        functionName: "createVault",
+        args: [
+          input.marketId,
+          input.question,
+          input.solverConfig,
+          sideNum,
+          input.rate,
+          input.deposit
+        ]
+      } as never);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      const seedLogs = parseEventLogs({
+        abi: vaultDriverAbi,
+        logs: receipt.logs,
+        eventName: "SeedOpened"
+      });
+      if (seedLogs.length > 0 && seedLogs[0].args.vaultId !== undefined) {
+        return { txHash, vaultId: seedLogs[0].args.vaultId };
+      }
+
+      const vaultLogs = parseEventLogs({
+        abi: vaultAbi,
+        logs: receipt.logs,
+        eventName: "VaultCreated"
+      });
+      if (vaultLogs.length > 0 && vaultLogs[0].args.vaultId !== undefined) {
+        return { txHash, vaultId: vaultLogs[0].args.vaultId };
+      }
+
+      throw new Error("createVault: SeedOpened or VaultCreated event not found in transaction receipt");
+    },
+
+    async registerAgent(input: { agent: Address; metadata: string }): Promise<Hex> {
+      if (!addresses.agentRegistry) {
+        throw new Error("OptionsWriter: agentRegistry address is not configured");
+      }
+      const account = getAccount();
+      const hash = await walletClient.writeContract({
+        account,
+        chain: walletClient.chain,
+        address: addresses.agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "registerAgent",
+        args: [input.agent, input.metadata]
       } as never);
 
       await publicClient.waitForTransactionReceipt({ hash });

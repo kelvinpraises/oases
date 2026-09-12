@@ -3,6 +3,7 @@ import type { Address } from "viem";
 export type EvmContract =
   | "protocol"
   | "marketRegistry"
+  | "agentRegistry"
   | "vault"
   | "dripsStreaming"
   | "caller"

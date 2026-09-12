@@ -8,6 +8,7 @@ import {Side} from "../src/vault/Side.sol";
 import {DripsStreaming} from "../src/streaming/DripsStreaming.sol";
 import {ManagedProxy} from "../src/streaming/Managed.sol";
 import {VaultDriver, IMarketRegistry} from "../src/streaming/drivers/VaultDriver.sol";
+import {AgentRegistry} from "../src/registries/AgentRegistry.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
@@ -47,6 +48,7 @@ contract VaultStreamingTest is Test {
     Vault public vault;
     VaultDriver public vaultDriver;
     MockMarketRegistry public marketRegistry;
+    AgentRegistry public agentRegistry;
 
     address public creator = address(0xAA11);
     address public funderB = address(0xAA22);
@@ -63,11 +65,14 @@ contract VaultStreamingTest is Test {
         vault = new Vault(protocol, IERC20(address(usdc)));
         marketRegistry = new MockMarketRegistry();
         marketRegistry.setMarket(marketId, true);
+        agentRegistry = new AgentRegistry(address(this));
+        agentRegistry.registerAgent(creator, "Authorized Test Agent");
 
         vaultDriver = new VaultDriver(protocol, address(drips), address(0), IERC20(address(usdc)));
         vaultDriver.bootstrapStreaming();
 
         protocol.setMarketRegistry(address(marketRegistry));
+        protocol.setAgentRegistry(address(agentRegistry));
         protocol.setVault(address(vault));
         protocol.setDripsStreaming(address(drips));
         protocol.setVaultDriver(address(vaultDriver));
@@ -523,6 +528,26 @@ contract VaultStreamingTest is Test {
         // Funder withdraws from Vault A: payout includes yield share!
         uint256 payoutA = vault.withdraw(funderA, vaultA, creator);
         assertEq(payoutA, 125e6, "Payout A captures 100% of winning pot including market yield");
+    }
+
+    function testCreateVaultUnauthorizedAgentReverts() public {
+        address unauthorized = address(0xDEAD);
+        usdc.mint(unauthorized, 100_000e6);
+
+        vm.startPrank(unauthorized);
+        usdc.approve(address(vaultDriver), type(uint256).max);
+        usdc.approve(address(drips), type(uint256).max);
+
+        vm.expectRevert("VaultDriver: not authorized agent");
+        vaultDriver.createVault(
+            marketId,
+            "Unauthorized question?",
+            "{\"solver\":\"unauthorized\"}",
+            Side.Yes,
+            1e6,
+            100e6
+        );
+        vm.stopPrank();
     }
 }
 

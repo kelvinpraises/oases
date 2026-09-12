@@ -73,7 +73,7 @@ export type DeployState = {
 
 export type ScopeFn = (
   client: PublicClient,
-  walletClient: WalletClient,
+  walletClient: any,
   previousScopes: Record<string, ScopeResult>,
   config: { chain: string; rpc: string; deployer: Address }
 ) => Promise<ScopeResult>;

@@ -29,6 +29,15 @@ export const runProtocolScope: ScopeFn = async (
     "marketRegistry"
   );
 
+  const agentRegistry = await deployFromArtifact(
+    walletClient,
+    publicClient,
+    "AgentRegistry.sol/AgentRegistry.json",
+    [config.deployer],
+    undefined,
+    "agentRegistry"
+  );
+
   const mockUsdc = await deployFromArtifact(
     walletClient,
     publicClient,
@@ -63,6 +72,7 @@ export const runProtocolScope: ScopeFn = async (
     contracts: {
       protocol,
       marketRegistry,
+      agentRegistry,
       vault,
       mockUsdc
     }

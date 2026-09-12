@@ -1,6 +1,7 @@
 import type { ScopeFn } from "../utils.js";
 import { deployFromArtifact } from "../utils.js";
 import {
+  agentRegistryAbi,
   dripsStreamingAbi,
   protocolAbi,
   vaultDriverAbi
@@ -25,9 +26,10 @@ export const runWireScope: ScopeFn = async (
   const protocol = protocolContracts.protocol as Address;
   const vault = protocolContracts.vault as Address;
   const marketRegistry = protocolContracts.marketRegistry as Address;
+  const agentRegistry = protocolContracts.agentRegistry as Address;
   const mockUsdc = protocolContracts.mockUsdc as Address;
 
-  if (!dripsProxy || !caller || !protocol || !vault || !marketRegistry || !mockUsdc) {
+  if (!dripsProxy || !caller || !protocol || !vault || !marketRegistry || !mockUsdc || !agentRegistry) {
     throw new Error("Missing prerequisite contracts from scopes 01 and 02");
   }
 
@@ -82,7 +84,42 @@ export const runWireScope: ScopeFn = async (
     console.log(`  Protocol.setVault -> ${vault}`);
   }
 
-  // 4. Deploy VaultDriver
+  // 4. Wire Protocol -> AgentRegistry
+  const currentAgentRegistry = await publicClient.readContract({
+    address: protocol,
+    abi: protocolAbi,
+    functionName: "agentRegistry"
+  });
+  if (currentAgentRegistry === ZERO_ADDRESS) {
+    const hash = await walletClient.writeContract({
+      address: protocol,
+      abi: protocolAbi,
+      functionName: "setAgentRegistry",
+      args: [agentRegistry]
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+    console.log(`  Protocol.setAgentRegistry -> ${agentRegistry}`);
+  }
+
+  // Authorize deployer in AgentRegistry if not already authorized
+  const isDeployerAuthorized = await publicClient.readContract({
+    address: agentRegistry,
+    abi: agentRegistryAbi,
+    functionName: "isAuthorizedAgent",
+    args: [config.deployer]
+  });
+  if (!isDeployerAuthorized) {
+    const regHash = await walletClient.writeContract({
+      address: agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: "registerAgent",
+      args: [config.deployer, "Default Sentinel EOA"]
+    });
+    await publicClient.waitForTransactionReceipt({ hash: regHash });
+    console.log(`  AgentRegistry.registerAgent -> ${config.deployer} (Default Sentinel EOA)`);
+  }
+
+  // 5. Deploy VaultDriver
   const vaultDriver = await deployFromArtifact(
     walletClient,
     publicClient,

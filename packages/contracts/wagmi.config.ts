@@ -9,6 +9,7 @@ export default defineConfig({
       include: [
         "Protocol.sol/Protocol.json",
         "MarketRegistry.sol/MarketRegistry.json",
+        "AgentRegistry.sol/AgentRegistry.json",
         "Vault.sol/Vault.json",
         "DripsStreaming.sol/DripsStreaming.json",
         "IDrips.sol/IDrips.json",

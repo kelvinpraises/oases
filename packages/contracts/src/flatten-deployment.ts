@@ -4,6 +4,7 @@ import type { EvmContract, EvmDeployOutput, EvmDeploymentAddresses } from "./typ
 const CONTRACT_FROM_DEPLOY_KEY: Readonly<Record<string, EvmContract>> = {
   protocol: "protocol",
   marketRegistry: "marketRegistry",
+  agentRegistry: "agentRegistry",
   vault: "vault",
   dripsProxy: "dripsStreaming",
   caller: "caller",

@@ -1,4 +1,5 @@
 export {
+  agentRegistryAbi,
   callerAbi,
   dripsStreamingAbi,
   iDripsAbi,
